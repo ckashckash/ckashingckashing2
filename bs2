@@ -1,0 +1,63 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterGui = game:GetService("StarterGui")
+
+-- Variables
+local localPlayer = Players.LocalPlayer
+local teleportRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("LocalPlayerTeleport")
+local modelNames = {"Roger", "Kurama", "Muzan"}
+local mapIds = {50020, 50021, 50022, 50023, 50024, 50025, 50026, 50027, 50028, 50029, 50030}
+
+-- Notification helper
+local function notify(title, text, duration)
+    StarterGui:SetCore("SendNotification", {
+        Title = title,
+        Text = text,
+        Duration = duration or 3
+    })
+end
+
+-- Main logic
+local function findAndTeleportToModels()
+    local found = false
+
+    for i, mapId in ipairs(mapIds) do
+        if found then break end
+
+        notify("Teleporting", "Map " .. i, 2)
+        teleportRemote:FireServer({["mapId"] = mapId})
+        task.wait(1.5)
+
+        local enemysFolder = workspace:FindFirstChild("Enemys") or workspace:WaitForChild("Enemys", 5)
+        if enemysFolder then
+            for _, model in ipairs(enemysFolder:GetChildren()) do
+                if model:IsA("Model") then
+                    for _, targetName in ipairs(modelNames) do
+                        if string.find(model.Name, targetName) then
+                            local humanoidPart = model:FindFirstChild("HumanoidRootPart")
+                            local playerChar = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+                            local playerHRP = playerChar:FindFirstChild("HumanoidRootPart")
+
+                            if humanoidPart and playerHRP then
+                                playerHRP.CFrame = humanoidPart.CFrame * CFrame.new(0, 0, 5)
+                                notify("✅ Found!", targetName .. " in Map " .. i, 5)
+                                found = true
+                                break
+                            end
+                        end
+                    end
+                end
+                if found then break end
+            end
+        end
+
+        task.wait(0.5)
+    end
+
+    if not found then
+        notify("Check Complete", "No target found in all maps", 4)
+    end
+end
+
+-- Run the function
+findAndTeleportToModels()
