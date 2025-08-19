@@ -1,6 +1,8 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
 
 -- Variables
 local localPlayer = Players.LocalPlayer
@@ -15,6 +17,34 @@ local function notify(title, text, duration)
         Text = text,
         Duration = duration or 3
     })
+end
+
+-- Server hop function
+local function serverHop()
+    local servers = {}
+    local success, result = pcall(function()
+        return HttpService:JSONDecode(
+            game:HttpGet(
+                "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
+            )
+        )
+    end)
+
+    if success and result and result.data then
+        for _, server in ipairs(result.data) do
+            if server.playing < server.maxPlayers then
+                table.insert(servers, server)
+            end
+        end
+    end
+
+    if #servers > 0 then
+        local randomServer = servers[math.random(1, #servers)]
+        notify("Server Hop", "Teleporting to new server...", 3)
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, randomServer.id, localPlayer)
+    else
+        notify("Server Hop Failed", "No available servers found.", 4)
+    end
 end
 
 -- Main logic
@@ -56,6 +86,8 @@ local function findAndTeleportToModels()
 
     if not found then
         notify("Check Complete", "No target found in all maps", 4)
+        task.wait(2) -- wait 2 seconds
+        serverHop() -- hop server
     end
 end
 
