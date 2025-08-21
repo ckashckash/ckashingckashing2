@@ -1,0 +1,169 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterGui = game:GetService("StarterGui")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+
+-- Remotes
+local teleportRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("LocalPlayerTeleport")
+local HeroSkillHarm = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("HeroSkillHarm")
+
+-- Variables
+local localPlayer = Players.LocalPlayer
+local modelNames = {"Roger", "Kurama", "Muzan"}
+local mapIds = {50020, 50021, 50022, 50023, 50024, 50025, 50026, 50027, 50028, 50029, 50030}
+
+-- Skill spam vars
+local heroGuids = {}
+local spamEnabled = false
+local spamEnabled2 = false
+
+-- Notification helper
+local function notify(title, text, duration)
+    StarterGui:SetCore("SendNotification", {
+        Title = title,
+        Text = text,
+        Duration = duration or 3
+    })
+end
+
+-- Server hop function
+local function serverHop()
+    local servers = {}
+    local success, result = pcall(function()
+        return HttpService:JSONDecode(
+            game:HttpGet(
+                "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
+            )
+        )
+    end)
+
+    if success and result and result.data then
+        for _, server in ipairs(result.data) do
+            if server.playing < server.maxPlayers then
+                table.insert(servers, server)
+            end
+        end
+    end
+
+    if #servers > 0 then
+        local randomServer = servers[math.random(1, #servers)]
+        notify("Server Hop", "Teleporting to new server...", 3)
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, randomServer.id, localPlayer)
+    else
+        notify("Server Hop Failed", "No available servers found.", 4)
+    end
+end
+
+-- Capture heroGuids from FireServer
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    if not checkcaller() and self == HeroSkillHarm and method == "FireServer" then
+        local args = {...}
+        if typeof(args[1]) == "table" and args[1].heroGuid then
+            local guid = args[1].heroGuid
+            if not table.find(heroGuids, guid) then
+                table.insert(heroGuids, guid)
+                print("Captured heroGuid:", guid)
+            end
+        end
+    end
+    return oldNamecall(self, ...)
+end)
+
+-- Spam loop for ALL captured heroes
+task.spawn(function()
+    while true do
+        if spamEnabled or spamEnabled2 then
+            for _, guid in ipairs(heroGuids) do
+                if spamEnabled then
+                    HeroSkillHarm:FireServer({
+                        harmIndex = 1,
+                        isSkill = true,
+                        heroGuid = guid,
+                        skillId = 200409
+                    })
+                end
+                if spamEnabled2 then
+                    HeroSkillHarm:FireServer({
+                        harmIndex = 1,
+                        isSkill = true,
+                        heroGuid = guid,
+                        skillId = 200314
+                    })
+                end
+            end
+        end
+        task.wait(0.00001)
+    end
+end)
+
+-- Main logic
+local function findAndTeleportToModels()
+    local found = false
+
+    for i, mapId in ipairs(mapIds) do
+        if found then break end
+
+        notify("Teleporting", "Map " .. i, 2)
+        teleportRemote:FireServer({["mapId"] = mapId})
+        task.wait(1.5)
+
+        local enemysFolder = workspace:FindFirstChild("Enemys") or workspace:WaitForChild("Enemys", 5)
+        if enemysFolder then
+            for _, model in ipairs(enemysFolder:GetChildren()) do
+                if model:IsA("Model") then
+                    for _, targetName in ipairs(modelNames) do
+                        if string.find(model.Name, targetName) then
+                            local humanoidPart = model:FindFirstChild("HumanoidRootPart")
+                            local playerChar = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+                            local playerHRP = playerChar:FindFirstChild("HumanoidRootPart")
+
+                            if humanoidPart and playerHRP then
+                                -- Teleport player next to enemy
+                                playerHRP.CFrame = humanoidPart.CFrame * CFrame.new(0, 0, 5)
+                                notify("✅ Found!", targetName .. " in Map " .. i, 5)
+
+                                -- ✅ Auto enable skill spam once found
+                                spamEnabled = true
+                                spamEnabled2 = true
+
+                                -- Keep checking until enemy is killed/removed
+                                task.spawn(function()
+                                    while model.Parent do
+                                        task.wait(0.5)
+                                    end
+                                    -- Enemy gone
+                                    notify("❌ Target killed", "Server hopping in 2s...", 3)
+
+                                    -- Disable spam until next target
+                                    spamEnabled = false
+                                    spamEnabled2 = false
+
+                                    task.wait(2)
+                                    serverHop()
+                                end)
+
+                                found = true
+                                break
+                            end
+                        end
+                    end
+                end
+                if found then break end
+            end
+        end
+
+        task.wait(0.5)
+    end
+
+    if not found then
+        notify("Check Complete", "No target found in all maps", 4)
+        task.wait(2)
+        serverHop()
+    end
+end
+
+-- Run the function
+findAndTeleportToModels()
