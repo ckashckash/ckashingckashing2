@@ -5,7 +5,7 @@ local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 
 -- Remotes
-local teleportRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("LocalPlayerTeleport")
+local teleportRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("StartLocalPlayerTeleport")
 local HeroSkillHarm = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("HeroSkillHarm")
 
 -- Variables
