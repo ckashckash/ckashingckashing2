@@ -1,0 +1,111 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterGui = game:GetService("StarterGui")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+
+-- Remotes
+local teleportRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("StartLocalPlayerTeleport")
+
+-- Variables
+local localPlayer = Players.LocalPlayer
+local modelNames = {"Roger", "Kurama", "Muzan"}
+local mapIds = {50001, 50002, 50003, 50004, 50005, 50008, 50009, 50010}
+
+-- Notification helper
+local function notify(title, text, duration)
+    StarterGui:SetCore("SendNotification", {
+        Title = title,
+        Text = text,
+        Duration = duration or 3
+    })
+end
+
+-- Server hop function
+local function serverHop()
+    local servers = {}
+    local success, result = pcall(function()
+        return HttpService:JSONDecode(
+            game:HttpGet(
+                "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
+            )
+        )
+    end)
+
+    if success and result and result.data then
+        for _, server in ipairs(result.data) do
+            if server.playing < server.maxPlayers then
+                table.insert(servers, server)
+            end
+        end
+    end
+
+    if #servers > 0 then
+        local randomServer = servers[math.random(1, #servers)]
+        notify("Server Hop", "Teleporting to new server...", 3)
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, randomServer.id, localPlayer)
+    else
+        notify("Server Hop Failed", "No available servers found.", 4)
+    end
+end
+
+-- Main logic
+local function findAndTeleportToModels()
+    local found = false
+
+    for i, mapId in ipairs(mapIds) do
+        if found then break end
+
+        notify("Teleporting", "Map " .. i, 2)
+        teleportRemote:FireServer({["mapId"] = mapId})
+        task.wait(1.5)
+
+        local enemysFolder = workspace:FindFirstChild("Enemys") or workspace:WaitForChild("Enemys", 5)
+        if enemysFolder then
+            for _, model in ipairs(enemysFolder:GetChildren()) do
+                if model:IsA("Model") then
+                    for _, targetName in ipairs(modelNames) do
+                        if string.find(model.Name, targetName) then
+                            local humanoidPart = model:FindFirstChild("HumanoidRootPart")
+                            local playerChar = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+                            local playerHRP = playerChar:FindFirstChild("HumanoidRootPart")
+
+                            if humanoidPart and playerHRP then
+                                -- Teleport player next to enemy
+                                playerHRP.CFrame = humanoidPart.CFrame * CFrame.new(0, 0, 5)
+                                notify("✅ Found!", targetName .. " in Map " .. i, 5)
+
+                                -- Keep checking until enemy is killed/removed
+                                task.spawn(function()
+                                    while model.Parent do
+                                        task.wait(0.5)
+                                    end
+                                    -- Enemy gone
+                                    notify("❌ Target killed", "Server hopping in 2s...", 3)
+
+                                    task.wait(2)
+                                    serverHop()
+                                end)
+
+                                found = true
+                                break
+                            end
+                        end
+                    end
+                end
+                if found then break end
+            end
+        end
+
+        task.wait(0.5)
+    end
+
+    if not found then
+        notify("Check Complete", "No target found in all maps", 4)
+        task.wait(2)
+        serverHop()
+    end
+end
+
+-- Run the function
+findAndTeleportToModels()
