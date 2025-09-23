@@ -3,7 +3,7 @@
 -- =========================
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local Window = Fluent:CreateWindow({
-    Title = "🍑 CUTE HAB",
+    Title = "🍑 CUTE HABBB",
     SubTitle = "+1 Blade Slayer 🍑",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 300),
@@ -24,7 +24,7 @@ local lastGuid = nil
 local spinning = false
 local spinDelay = 0.1
 local stopGrades = {}
-local showEverySpin = true -- toggle to show every spin
+local showEverySpin = true
 
 local gradeMap = {
     [990006] = "S",
@@ -57,7 +57,7 @@ end)
 setreadonly(mt, true)
 
 -- =========================
--- SPIN FUNCTION
+-- SPIN FUNCTION (using your exact working format)
 -- =========================
 local function spinOnce()
     if not lastGuid then
@@ -65,17 +65,17 @@ local function spinOnce()
         return
     end
 
-    local args = {{drawId = 980001, guid = lastGuid}}
-    local success, result = pcall(function()
-        return RandomHeroEquipGrade:InvokeServer(unpack(args))
-    end)
+    local args = { { drawId = 980001, guid = lastGuid } }
 
-    if success and typeof(result) == "table" and result.data then
+    -- Directly use the exact KRNL working call
+    local result = RandomHeroEquipGrade:InvokeServer(unpack(args))
+
+    if typeof(result) == "table" and result.data then
         local gradeId = result.data.grade
         local gradeName = gradeMap[gradeId] or ("Unknown")
         print("🎲 Spin result:", gradeName)
 
-        -- Show every spin in notification
+        -- Show every spin notification
         if showEverySpin then
             Window:Notify({
                 Title = "Spin Result",
@@ -86,7 +86,7 @@ local function spinOnce()
 
         return gradeId
     else
-        warn("❌ Spin failed:", result)
+        warn("❌ Spin failed or invalid result")
     end
 end
 
@@ -95,19 +95,19 @@ end
 -- =========================
 local TabSpin = Window:AddTab({Title = "Auto Spinner", Icon = "refresh-cw"})
 
--- Add toggles for stop grades
+-- Stop grade toggles
 for gradeId, name in pairs(gradeMap) do
     TabSpin:AddToggle("Stop_"..gradeId, {Title = "Stop at "..name, Default = false}, function(Value)
         stopGrades[gradeId] = Value
     end)
 end
 
--- Slider for spin delay
+-- Spin delay slider
 TabSpin:AddSlider("SpinDelay", {Title = "Spin Delay", Min = 0.001, Max = 1, Default = 0.1, Rounding = 3}, function(Value)
     spinDelay = Value
 end)
 
--- Toggle to show every spin
+-- Show every spin toggle
 TabSpin:AddToggle("ShowEverySpin", {Title = "Show Every Spin", Default = true}, function(Value)
     showEverySpin = Value
 end)
