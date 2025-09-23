@@ -21,7 +21,7 @@ local gradeMap = {
 -- FLUENT UI
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local Window = Fluent:CreateWindow({
-    Title = "🍑 CUTE HXUB",
+    Title = "🍑 CUTEX HUB",
     SubTitle = "+1 Blade Slayer 🍑",
     Size = UDim2.fromOffset(480,300),
     TabWidth = 160,
@@ -29,7 +29,7 @@ local Window = Fluent:CreateWindow({
     Theme = "Dark"
 })
 
-local TabSpin = Window:AddTab({Title="Auto Spinner", Icon="refresh-cw"})
+local TabSpin = Window:AddTab("Auto Spinner")
 
 -- CAPTURE LAST EQUIPPED GUID
 local oldNamecall
@@ -47,7 +47,7 @@ end)
 -- SPIN FUNCTION
 local function spinOnce()
     if not lastGuid then
-        Fluent:Notify({Title="Auto Spinner", Content="❌ Equip a weapon first!", Duration=2})
+        Window:Notify({Title="Auto Spinner", Content="❌ Equip a weapon first!", Duration=2})
         return nil
     end
     local args = { { drawId = 980001, guid = lastGuid } }
@@ -60,41 +60,43 @@ local function spinOnce()
         Window:Notify({Title="Auto Spinner", Content="🎲 Spin result: "..gradeName, Duration=1})
         return gradeId
     else
-        Fluent:Notify({Title="Auto Spinner", Content="❌ Spin failed", Duration=2})
+        Window:Notify({Title="Auto Spinner", Content="❌ Spin failed", Duration=2})
         return nil
     end
 end
 
--- STOP CHECKBOXES
-for gradeId,name in pairs(gradeMap) do
-    TabSpin:AddToggle("Stop_"..gradeId, {Title="Stop at "..name, Default=false}, function(val)
+-- TOGGLE STOP GRADES
+for gradeId, name in pairs(gradeMap) do
+    TabSpin:AddToggle("Stop_"..gradeId, "Stop at "..name, false, function(val)
         stopGrades[gradeId] = val
     end)
 end
 
--- SPIN SPEED
-TabSpin:AddSlider("SpinDelay",{Title="Spin Delay",Min=0.001,Max=1,Default=0.05,Rounding=3},function(val)
+-- SPIN SPEED SLIDER
+TabSpin:AddSlider("SpinDelay", "Spin Delay", 0.05, 0.001, 1, function(val)
     spinDelay = val
 end)
 
 -- START BUTTON
-TabSpin:AddButton({Title="▶️ Start Spin",Callback=function()
+TabSpin:AddButton("▶️ Start Spin", function()
     if spinning then return end
     spinning = true
     Window:Notify({Title="Auto Spinner", Content="🚀 Spin started!", Duration=2})
-    while spinning do
-        local gradeId = spinOnce()
-        if gradeId and stopGrades[gradeId] then
-            spinning = false
-            Window:Notify({Title="Auto Spinner", Content="🎉 Found target grade: "..(gradeMap[gradeId] or "Unknown"), Duration=5})
-            break
+    task.spawn(function()
+        while spinning do
+            local gradeId = spinOnce()
+            if gradeId and stopGrades[gradeId] then
+                spinning = false
+                Window:Notify({Title="Auto Spinner", Content="🎉 Found target grade: "..(gradeMap[gradeId] or "Unknown"), Duration=5})
+                break
+            end
+            task.wait(spinDelay)
         end
-        task.wait(spinDelay)
-    end
-end})
+    end)
+end)
 
 -- STOP BUTTON
-TabSpin:AddButton({Title="⛔ Stop Spin",Callback=function()
+TabSpin:AddButton("⛔ Stop Spin", function()
     spinning = false
     Window:Notify({Title="Auto Spinner", Content="⛔ Spin stopped manually", Duration=2})
-end})
+end)
