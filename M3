@@ -3,7 +3,7 @@
 -- =========================
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local Window = Fluent:CreateWindow({
-    Title = "🍑 CUTE HABBB",
+    Title = "🍑 CUTE",
     SubTitle = "+1 Blade Slayer 🍑",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 300),
