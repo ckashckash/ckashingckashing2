@@ -1,39 +1,15 @@
--- ===========================
--- FLUENT UI + AUTO WEAPON SPINNER
--- ===========================
-
--- Load Fluent and addons
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
-local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
-local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
-
--- Create main window
-local Window = Fluent:CreateWindow({
-    Title = "🍑 CUSTE HUB ",
-    SubTitle = "+1 Blade Slayer 🍑",
-    TabWidth = 160,
-    Size = UDim2.fromOffset(480, 300),
-    Acrylic = true,
-    Theme = "Dark",
-    MinimizeKey = Enum.KeyCode.K
-})
-
--- ===========================
 -- VARIABLES
--- ===========================
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local EquipHeroEquip = Remotes:WaitForChild("EquipHeroEquip")
 local RandomHeroEquipGrade = Remotes:WaitForChild("RandomHeroEquipGrade")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
 local lastGuid = nil
 local spinning = false
-local spinDelay = 0.1
+local spinDelay = 0.05
 local stopGrades = {}
-
 local gradeMap = {
     [990006] = "S",
     [990007] = "SS",
@@ -42,126 +18,83 @@ local gradeMap = {
     [990010] = "M"
 }
 
--- ===========================
--- CAPTURE LAST EQUIPPED WEAPON
--- ===========================
+-- FLUENT UI
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local Window = Fluent:CreateWindow({
+    Title = "🍑 CUTE HXUB",
+    SubTitle = "+1 Blade Slayer 🍑",
+    Size = UDim2.fromOffset(480,300),
+    TabWidth = 160,
+    Acrylic = true,
+    Theme = "Dark"
+})
+
+local TabSpin = Window:AddTab({Title="Auto Spinner", Icon="refresh-cw"})
+
+-- CAPTURE LAST EQUIPPED GUID
 local oldNamecall
 oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local args = {...}
     if getnamecallmethod() == "FireServer" and self == EquipHeroEquip then
         if args[1] and typeof(args[1]) == "table" and args[1].guid then
             lastGuid = args[1].guid
-            print("✅ Captured last guid:", lastGuid)
+            Window:Notify({Title="Auto Spinner", Content="✅ Captured last guid", Duration=2})
         end
     end
     return oldNamecall(self, ...)
 end)
 
--- ===========================
 -- SPIN FUNCTION
--- ===========================
 local function spinOnce()
     if not lastGuid then
-        warn("❌ Equip a weapon first!")
-        return
+        Fluent:Notify({Title="Auto Spinner", Content="❌ Equip a weapon first!", Duration=2})
+        return nil
     end
-
-    local args = {{ drawId = 980001, guid = lastGuid }}
-    local result = RandomHeroEquipGrade:InvokeServer(unpack(args))
-
-    if typeof(result) == "table" and result.data then
+    local args = { { drawId = 980001, guid = lastGuid } }
+    local success, result = pcall(function()
+        return RandomHeroEquipGrade:InvokeServer(unpack(args))
+    end)
+    if success and typeof(result) == "table" and result.data then
         local gradeId = result.data.grade
         local gradeName = gradeMap[gradeId] or "Unknown"
-        print("🎲 Spin result:", gradeName)
+        Window:Notify({Title="Auto Spinner", Content="🎲 Spin result: "..gradeName, Duration=1})
         return gradeId
+    else
+        Fluent:Notify({Title="Auto Spinner", Content="❌ Spin failed", Duration=2})
+        return nil
     end
 end
 
--- ===========================
--- FLUENT UI TAB
--- ===========================
-local allowedUsers = {"Cuteeee1587", "Cuteeeee1587", "cxz456zxc654"}
-local function isAllowedUser(name)
-    for _, u in ipairs(allowedUsers) do
-        if u == name then return true end
-    end
-    return false
-end
-
-if isAllowedUser(LocalPlayer.Name) then
-    local TabSpin = Window:AddTab({ Title = "Auto Spinner", Icon = "refresh-cw" })
-
-    -- Add checkboxes for stop grades
-    for gradeId, name in pairs(gradeMap) do
-        TabSpin:AddToggle("Stop_"..gradeId, {Title = "Stop at "..name, Default = false}, function(Value)
-            stopGrades[gradeId] = Value
-        end)
-    end
-
-    -- Spin speed slider
-    TabSpin:AddSlider("SpinDelay", {Title = "Spin Delay", Min = 0.001, Max = 1, Default = 0.1, Rounding = 3}, function(Value)
-        spinDelay = Value
-    end)
-
-    -- Start spin button
-    TabSpin:AddButton({Title = "▶️ Start Spin"}, function()
-        if spinning then return end
-        spinning = true
-        Fluent:Notify({Title="Auto Spinner", Content="Spin started!", Duration=3})
-        while spinning do
-            local gradeId = spinOnce()
-            if gradeId and stopGrades[gradeId] then
-                spinning = false
-                Fluent:Notify({
-                    Title="Auto Spinner",
-                    Content="🎉 Found target grade: "..(gradeMap[gradeId] or "Unknown"),
-                    Duration=5
-                })
-                break
-            end
-            task.wait(spinDelay)
-        end
-    end)
-
-    -- Stop spin button
-    TabSpin:AddButton({Title = "⛔ Stop Spin"}, function()
-        spinning = false
-        Fluent:Notify({
-            Title="Auto Spinner",
-            Content="Stopped spinning manually.",
-            Duration=3
-        })
+-- STOP CHECKBOXES
+for gradeId,name in pairs(gradeMap) do
+    TabSpin:AddToggle("Stop_"..gradeId, {Title="Stop at "..name, Default=false}, function(val)
+        stopGrades[gradeId] = val
     end)
 end
 
--- ===========================
--- SAVE MANAGER / SETTINGS
--- ===========================
-SaveManager:SetLibrary(Fluent)
-InterfaceManager:SetLibrary(Fluent)
-SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({})
-InterfaceManager:SetFolder("FluentScriptHub")
-SaveManager:SetFolder("FluentScriptHub/Bladeslayer")
-InterfaceManager:BuildInterfaceSection(Window)
-SaveManager:BuildConfigSection(Window)
-Window:SelectTab(1)
-
--- Toggle GUI Button
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-local ToggleGui = Instance.new("ScreenGui")
-ToggleGui.Name = "ToggleFluentUI"
-ToggleGui.ResetOnSpawn = false
-ToggleGui.Parent = PlayerGui
-
-local ImageButton = Instance.new("ImageButton")
-ImageButton.Size = UDim2.new(0, 60, 0, 60)
-ImageButton.Position = UDim2.new(0, 10, 0, 10)
-ImageButton.BackgroundTransparency = 1
-ImageButton.Image = "rbxassetid://89716250379057"
-ImageButton.Parent = ToggleGui
-ImageButton.Active = true
-ImageButton.Draggable = true
-ImageButton.MouseButton1Click:Connect(function()
-    Window:Minimize()
+-- SPIN SPEED
+TabSpin:AddSlider("SpinDelay",{Title="Spin Delay",Min=0.001,Max=1,Default=0.05,Rounding=3},function(val)
+    spinDelay = val
 end)
+
+-- START BUTTON
+TabSpin:AddButton({Title="▶️ Start Spin",Callback=function()
+    if spinning then return end
+    spinning = true
+    Window:Notify({Title="Auto Spinner", Content="🚀 Spin started!", Duration=2})
+    while spinning do
+        local gradeId = spinOnce()
+        if gradeId and stopGrades[gradeId] then
+            spinning = false
+            Window:Notify({Title="Auto Spinner", Content="🎉 Found target grade: "..(gradeMap[gradeId] or "Unknown"), Duration=5})
+            break
+        end
+        task.wait(spinDelay)
+    end
+end})
+
+-- STOP BUTTON
+TabSpin:AddButton({Title="⛔ Stop Spin",Callback=function()
+    spinning = false
+    Window:Notify({Title="Auto Spinner", Content="⛔ Spin stopped manually", Duration=2})
+end})
