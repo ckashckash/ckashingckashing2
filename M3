@@ -1,7 +1,7 @@
 -- FLUENT UI
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local Window = Fluent:CreateWindow({
-    Title = "🍑 CUaATEXs HUB",
+    Title = "🍑 Cs HUB",
     SubTitle = "+1 Blade Slayer 🍑",
     Size = UDim2.fromOffset(480,300),
     TabWidth = 160,
