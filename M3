@@ -6,7 +6,7 @@ local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/d
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
 local Window = Fluent:CreateWindow({
-    Title = "🍑 CUTE HUB ",
+    Title = "🍑 CUTE HUB! ",
     SubTitle = "+1 Blade Slayer 🍑",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 300),
@@ -114,7 +114,7 @@ task.defer(function()
                 if gradeId and stopGrades[gradeId] then
                     spinning = false
                     Window:Notify({
-                        Title = "Auto Spinners",
+                        Title = "Auto Spinner",
                         Content = "🎉 Found target: " .. (gradeMap[gradeId] or "Unknown"),
                         Duration = 5
                     })
