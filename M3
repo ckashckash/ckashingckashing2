@@ -1,34 +1,63 @@
--- TEST 2: DIRECT REMOTE INVOKE
+--// Services
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local EquipHeroEquip = Remotes:WaitForChild("EquipHeroEquip")
 local RandomHeroEquipGrade = Remotes:WaitForChild("RandomHeroEquipGrade")
+local StarterGui = game:GetService("StarterGui")
 
--- Replace this guid with the one you saw captured earlier
-local testGuid = "b78ea7d3-fcaf-4c5a-8e76-5f8c4e376f58"
-
-local args = {
-    {
-        drawId = 980001,
-        guid = testGuid
-    }
-}
-
-local success, result = pcall(function()
-    return RandomHeroEquipGrade:InvokeServer(unpack(args))
+--// Capture the last equipped guid
+local lastGuid = nil
+EquipHeroEquip.OnClientEvent:Connect(function(data)
+    if typeof(data) == "table" and data.guid then
+        lastGuid = data.guid
+        print("✅ Captured last guid:", lastGuid)
+    end
 end)
 
-if success then
-    print("✅ RemoteFunction returned:", result, typeof(result))
-    if typeof(result) == "table" then
-        for k, v in pairs(result) do
-            print(" -", k, v)
-            if typeof(v) == "table" then
-                for kk, vv in pairs(v) do
-                    print("   >", kk, vv)
-                end
-            end
-        end
+--// Grade map
+local gradeMap = {
+    [990006] = "S",
+    [990007] = "SS",
+    [990008] = "G",
+    [990009] = "N",
+    [990010] = "M",
+}
+
+--// Spin function
+local function spinOnce()
+    if not lastGuid then
+        warn("❌ No guid captured yet. Equip a weapon first!")
+        return
     end
-else
-    warn("❌ RemoteFunction error:", result)
+
+    local args = {
+        {
+            drawId = 980001,
+            guid = lastGuid
+        }
+    }
+
+    local success, result = pcall(function()
+        return RandomHeroEquipGrade:InvokeServer(unpack(args))
+    end)
+
+    if success and typeof(result) == "table" then
+        local gradeId = result.grade
+        local gradeName = gradeMap[gradeId] or ("Unknown grade: " .. tostring(gradeId))
+
+        print("🎲 Spin result:", gradeName)
+
+        -- Show notification
+        StarterGui:SetCore("SendNotification", {
+            Title = "Spin Result",
+            Text = "You got: " .. gradeName,
+            Duration = 5
+        })
+    else
+        warn("❌ Spin failed:", result)
+    end
 end
+
+--// Run one test spin automatically
+wait(2)
+spinOnce()
