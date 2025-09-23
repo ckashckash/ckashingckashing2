@@ -1,7 +1,7 @@
 -- FLUENT UI
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local Window = Fluent:CreateWindow({
-    Title = "🍑 CUATEXs HUB",
+    Title = "🍑 CUaATEXs HUB",
     SubTitle = "+1 Blade Slayer 🍑",
     Size = UDim2.fromOffset(480,300),
     TabWidth = 160,
@@ -9,7 +9,7 @@ local Window = Fluent:CreateWindow({
     Theme = "Dark"
 })
 
-local TabSpin = Window:AddTab("Auto Spinner")
+local TabSpin = Window:AddTab({ Title = "Quirk Spinner", Icon = "refresh-ccw" })
 
 
 
