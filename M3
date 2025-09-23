@@ -1,3 +1,19 @@
+-- FLUENT UI
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local Window = Fluent:CreateWindow({
+    Title = "🍑 CUATEXs HUB",
+    SubTitle = "+1 Blade Slayer 🍑",
+    Size = UDim2.fromOffset(480,300),
+    TabWidth = 160,
+    Acrylic = true,
+    Theme = "Dark"
+})
+
+local TabSpin = Window:AddTab("Auto Spinner")
+
+
+
+
 -- VARIABLES
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
@@ -18,18 +34,6 @@ local gradeMap = {
     [990010] = "M"
 }
 
--- FLUENT UI
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
-local Window = Fluent:CreateWindow({
-    Title = "🍑 CUTEXs HUB",
-    SubTitle = "+1 Blade Slayer 🍑",
-    Size = UDim2.fromOffset(480,300),
-    TabWidth = 160,
-    Acrylic = true,
-    Theme = "Dark"
-})
-
-local TabSpin = Window:AddTab("Auto Spinner")
 
 -- CAPTURE LAST EQUIPPED GUID
 local oldNamecall
