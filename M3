@@ -1,0 +1,67 @@
+-- ===========================================
+-- Auto Spin Test Script
+-- Captures last EquipHeroEquip guid & uses it
+-- ===========================================
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+
+local EquipHeroEquip = Remotes:WaitForChild("EquipHeroEquip")
+local RandomHeroEquipGrade = Remotes:WaitForChild("RandomHeroEquipGrade")
+
+-- Store last guid from EquipHeroEquip
+local lastGuid = nil
+
+-- Hook remote to capture the last guid used
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
+
+    if self == EquipHeroEquip and method == "FireServer" then
+        if typeof(args[1]) == "table" and args[1].guid then
+            lastGuid = args[1].guid
+            print("✅ Captured last guid:", lastGuid)
+        end
+    end
+
+    return oldNamecall(self, ...)
+end)
+
+-- Function to spin once
+local function spinOnce()
+    if not lastGuid then
+        warn("❌ No guid captured yet. Equip a weapon first!")
+        return
+    end
+
+    local args = {
+        {
+            drawId = 980001, -- Default drawId (adjust if needed)
+            guid = lastGuid
+        }
+    }
+
+    local success, result = pcall(function()
+        return RandomHeroEquipGrade:InvokeServer(unpack(args))
+    end)
+
+    if success then
+        print("📜 Spin result raw:", result, typeof(result))
+        if typeof(result) == "table" then
+            for k,v in pairs(result) do
+                print(" -", k, v)
+                if typeof(v) == "table" then
+                    for kk,vv in pairs(v) do
+                        print("   >", kk, vv)
+                    end
+                end
+            end
+        end
+    else
+        warn("❌ Spin failed:", result)
+    end
+end
+
+-- Example: run once manually
+spinOnce()
