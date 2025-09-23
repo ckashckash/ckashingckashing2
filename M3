@@ -1,35 +1,30 @@
--- ===========================================
--- Auto Spin Test Script
--- Captures last EquipHeroEquip guid & uses it
--- ===========================================
-
+-- // Variables
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 
 local EquipHeroEquip = Remotes:WaitForChild("EquipHeroEquip")
 local RandomHeroEquipGrade = Remotes:WaitForChild("RandomHeroEquipGrade")
 
--- Store last guid from EquipHeroEquip
 local lastGuid = nil
 
--- Hook remote to capture the last guid used
-local oldNamecall
-oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-    local method = getnamecallmethod()
+-- Capture guid when equipping
+local oldFire
+oldFire = hookfunction(EquipHeroEquip.FireServer, function(self, ...)
     local args = {...}
+    if args[1] and typeof(args[1]) == "table" and args[1].guid then
+        lastGuid = args[1].guid
+        print("✅ Captured last guid:", lastGuid)
 
-    if self == EquipHeroEquip and method == "FireServer" then
-        if typeof(args[1]) == "table" and args[1].guid then
-            lastGuid = args[1].guid
-            print("✅ Captured last guid:", lastGuid)
-        end
+        -- Auto test one spin when guid is captured
+        task.delay(0.5, function()
+            spinOnce()
+        end)
     end
-
-    return oldNamecall(self, ...)
+    return oldFire(self, ...)
 end)
 
--- Function to spin once
-local function spinOnce()
+-- Spin function
+function spinOnce()
     if not lastGuid then
         warn("❌ No guid captured yet. Equip a weapon first!")
         return
@@ -37,7 +32,7 @@ local function spinOnce()
 
     local args = {
         {
-            drawId = 980001, -- Default drawId (adjust if needed)
+            drawId = 980001,
             guid = lastGuid
         }
     }
@@ -62,6 +57,3 @@ local function spinOnce()
         warn("❌ Spin failed:", result)
     end
 end
-
--- Example: run once manually
-spinOnce()
