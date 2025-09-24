@@ -1,32 +1,40 @@
--- FLUENT UI
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
+
 local Window = Fluent:CreateWindow({
-    Title = "🍑 Cs HUB",
+    Title = "🍑 CUTTTE HUB ",
     SubTitle = "+1 Blade Slayer 🍑",
-    Size = UDim2.fromOffset(480,300),
     TabWidth = 160,
+    Size = UDim2.fromOffset(480, 300),
     Acrylic = true,
-    Theme = "Dark"
+    Theme = "Dark",
+    MinimizeKey = Enum.KeyCode.K
 })
 
-local TabSpin = Window:AddTab({ Title = "Quirk Spinner", Icon = "refresh-ccw" })
+
+local Tabs = {
+    Welcome = Window:AddTab({ Title = "Welcome", Icon = "flower" }),
+	Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
+}
+
+local Options = Fluent.Options
 
 
-
-
--- VARIABLES
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Remotes = ReplicatedStorage:WaitForChild("Remotes")
-local EquipHeroEquip = Remotes:WaitForChild("EquipHeroEquip")
-local RandomHeroEquipGrade = Remotes:WaitForChild("RandomHeroEquipGrade")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
-local lastGuid = nil
+-- ===========================
+-- EQUIP WEAPON SPINNER SETTINGS
+-- ===========================
+local equipGuid = nil -- Auto-detect when equip weapon
+local drawId = 980001 -- ID used for rolling
 local spinning = false
-local spinDelay = 0.05
-local stopGrades = {}
-local gradeMap = {
+local desiredWeaponQuirks = {}
+local spinDelay = 0.1 -- default spin speed
+
+-- ===========================
+-- QUIRK LISTS
+-- ===========================
+-- Source table for UI (ID → Name)
+local weaponQuirksList = {
     [990006] = "S",
     [990007] = "SS",
     [990008] = "G",
@@ -34,73 +42,195 @@ local gradeMap = {
     [990010] = "M"
 }
 
+-- Lookup for notifications (ID → Name)
+local EquipQuirkNames = {}
+for id, name in pairs(weaponQuirksList) do
+    EquipQuirkNames[id] = name
+end
 
--- CAPTURE LAST EQUIPPED GUID
+-- ===========================
+-- SERVICES / REMOTES
+-- ===========================
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RandomHeroEquipGrade = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RandomHeroEquipGrade")
+local EquipHeroEquip = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("EquipHeroEquip")
+
+-- ===========================
+-- HOOK TO CAPTURE EQUIP GUID
+-- ===========================
 local oldNamecall
 oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local args = {...}
     if getnamecallmethod() == "FireServer" and self == EquipHeroEquip then
-        if args[1] and typeof(args[1]) == "table" and args[1].guid then
-            lastGuid = args[1].guid
-            Window:Notify({Title="Auto Spinner", Content="✅ Captured last guid", Duration=2})
+        if args[1] and type(args[1]) == "table" and args[1].guid then
+            equipGuid = args[1].guid
         end
     end
     return oldNamecall(self, ...)
 end)
 
--- SPIN FUNCTION
-local function spinOnce()
-    if not lastGuid then
-        Window:Notify({Title="Auto Spinner", Content="❌ Equip a weapon first!", Duration=2})
-        return nil
-    end
-    local args = { { drawId = 980001, guid = lastGuid } }
-    local success, result = pcall(function()
-        return RandomHeroEquipGrade:InvokeServer(unpack(args))
-    end)
-    if success and typeof(result) == "table" and result.data then
-        local gradeId = result.data.grade
-        local gradeName = gradeMap[gradeId] or "Unknown"
-        Window:Notify({Title="Auto Spinner", Content="🎲 Spin result: "..gradeName, Duration=1})
-        return gradeId
-    else
-        Window:Notify({Title="Auto Spinner", Content="❌ Spin failed", Duration=2})
-        return nil
-    end
-end
-
--- TOGGLE STOP GRADES
-for gradeId, name in pairs(gradeMap) do
-    TabSpin:AddToggle("Stop_"..gradeId, "Stop at "..name, false, function(val)
-        stopGrades[gradeId] = val
-    end)
-end
-
--- SPIN SPEED SLIDER
-TabSpin:AddSlider("SpinDelay", "Spin Delay", 0.05, 0.001, 1, function(val)
-    spinDelay = val
-end)
-
--- START BUTTON
-TabSpin:AddButton("▶️ Start Spin", function()
-    if spinning then return end
-    spinning = true
-    Window:Notify({Title="Auto Spinner", Content="🚀 Spin started!", Duration=2})
-    task.spawn(function()
-        while spinning do
-            local gradeId = spinOnce()
-            if gradeId and stopGrades[gradeId] then
-                spinning = false
-                Window:Notify({Title="Auto Spinner", Content="🎉 Found target grade: "..(gradeMap[gradeId] or "Unknown"), Duration=5})
-                break
-            end
-            task.wait(spinDelay)
+-- ===========================
+-- HELPERS
+-- ===========================
+local function tableHasValue(tbl, val)
+    for _, v in ipairs(tbl) do
+        if tonumber(v) == tonumber(val) then
+            return true
         end
-    end)
-end)
+    end
+    return false
+end
 
--- STOP BUTTON
-TabSpin:AddButton("⛔ Stop Spin", function()
-    spinning = false
-    Window:Notify({Title="Auto Spinner", Content="⛔ Spin stopped manually", Duration=2})
+-- ===========================
+-- SPIN LOOP
+-- ===========================
+local function spinLoop()
+    while spinning do
+        if not equipGuid then
+            Fluent:Notify({Title = "Error", Content = "No hero/weapon equipped! Please equip first.", Duration = 3})
+            spinning = false
+            break
+        end
+
+        -- Correct remote call with drawId and guid
+        local args = {
+            {
+                drawId = drawId,
+                guid = equipGuid
+            }
+        }
+        local result = RandomHeroEquipGrade:InvokeServer(unpack(args))
+
+        if result and result.data and result.data.grade then
+            local quirkId = result.data.grade
+            local quirkName = EquipQuirkNames[quirkId]
+
+            if quirkName then
+                Fluent:Notify({
+                    Title = "Roll Result",
+                    Content = "Got grade: " .. quirkName .. " (ID: " .. tostring(quirkId) .. ")",
+                    Duration = 2
+                })
+
+                if tableHasValue(desiredWeaponQuirks, quirkId) then
+                    Fluent:Notify({
+                        Title = "Success",
+                        Content = "🎯 Found desired grade: " .. quirkName,
+                        Duration = 3
+                    })
+                    spinning = false
+                    break
+                end
+            end
+        end
+
+        task.wait(spinDelay)
+    end
+end
+
+-- ===========================
+-- FLUENT UI TAB
+-- ===========================
+local allowedUsers = {"Cuteeee1587", "Hattori_Hanz0o0", "Supremorap"}
+
+local function isAllowedUser(name)
+    for _, u in ipairs(allowedUsers) do
+        if u == name then
+            return true
+        end
+    end
+    return false
+end
+
+if isAllowedUser(LocalPlayer.Name) then
+    local Tab3 = Window:AddTab({ Title = "EquipWeaponSpin", Icon = "swords" })
+
+    -- Checkbox for each grade
+    for id, grade in pairs(weaponQuirksList) do
+        local check = Tab3:AddToggle(grade, {Title = grade, Default = false})
+        check:OnChanged(function(state)
+            if state then
+                table.insert(desiredWeaponQuirks, id)
+            else
+                for i, v in ipairs(desiredWeaponQuirks) do
+                    if v == id then table.remove(desiredWeaponQuirks, i) break end
+                end
+            end
+        end)
+    end
+
+    -- Spin speed slider
+    Tab3:AddSlider("SpinSpeed", {
+        Title = "Spin Speed",
+        Description = "Delay between rerolls (lower = faster)",
+        Default = 0.1,
+        Min = 0.01,
+        Max = 1,
+        Rounding = 2,
+        Callback = function(value)
+            spinDelay = value
+        end
+    })
+
+    -- Start button
+    Tab3:AddButton({
+        Title = "Start Rolling",
+        Description = "Begin auto hero/weapon grade rerolling",
+        Callback = function()
+            if spinning then return end
+            spinning = true
+            task.spawn(spinLoop)
+            Fluent:Notify({Title = "Started", Content = "EquipWeapon auto roll started!", Duration = 3})
+        end
+    })
+
+    -- Stop button
+    Tab3:AddButton({
+        Title = "Stop Rolling",
+        Description = "Stop the reroll loop",
+        Callback = function()
+            spinning = false
+            Fluent:Notify({Title = "Stopped", Content = "EquipWeapon auto roll stopped!", Duration = 3})
+        end
+    })
+end
+
+
+
+-- ===========================
+-- SAVE MANAGER / SETTINGS
+-- ===========================
+SaveManager:SetLibrary(Fluent)
+InterfaceManager:SetLibrary(Fluent)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({})
+InterfaceManager:SetFolder("FluentScriptHub")
+SaveManager:SetFolder("FluentScriptHub/Bladeslayer")
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs.Settings)
+
+Window:SelectTab(1)
+SaveManager:LoadAutoloadConfig()
+
+-- Toggle UI Button
+local PlayerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+
+local ToggleGui = Instance.new("ScreenGui")
+ToggleGui.Name = "ToggleFluentUI"
+ToggleGui.ResetOnSpawn = false
+ToggleGui.Parent = PlayerGui
+
+local ImageButton = Instance.new("ImageButton")
+ImageButton.Size = UDim2.new(0, 60, 0, 60)
+ImageButton.Position = UDim2.new(0, 10, 0, 10)
+ImageButton.BackgroundTransparency = 1
+ImageButton.Image = "rbxassetid://89716250379057" -- Replace this
+ImageButton.Parent = ToggleGui
+ImageButton.Active = true
+ImageButton.Draggable = true
+
+ImageButton.MouseButton1Click:Connect(function()
+    Window:Minimize()
 end)
