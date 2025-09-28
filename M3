@@ -241,18 +241,6 @@ local function spinLoop3()
     end
 end
 
--- ===========================
--- Fluent UI Setup
--- ===========================
-local allowedUsers = {"Cuteeee1587","Hattori_hanz0o0","Supremorap"}
-local function isAllowedUser(name)
-    for _, u in ipairs(allowedUsers) do
-        if u == name then return true end
-    end
-    return false
-end
-
-if isAllowedUser(LocalPlayer.Name) then
     -- ===== Slot 1 Tab =====
     local Tab1 = Window:AddTab({ Title = "Weapon Quirk Spinner 1", Icon = "swords" })
     for label,id in pairs(weaponQuirksList1) do
