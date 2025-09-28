@@ -20,7 +20,7 @@ local function deepPrint(tbl, indent)
 end
 
 -- Argument (you can change 400001 to whatever ornament ID you want)
-local args = {400001}
+local args = {400002}
 
 -- Call the reroll RemoteFunction
 print("[🎲] Rolling Ornament with ID:", args[1])
