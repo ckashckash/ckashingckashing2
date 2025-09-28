@@ -1429,6 +1429,10 @@ if allowedUsers[player.Name] then
     end)
 end
 
+-- ===========================
+-- ORNAMENT REROLL SPINNER
+-- ===========================
+local Fluent = Fluent or loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -1498,7 +1502,8 @@ end
 -- ===========================
 local function loadOrnamentToggles(category, Tab)
     selectedOrnaments = {}
-    Tab:ClearSection("OrnamentToggles")
+    Tab:ClearSection("OrnamentToggles") -- clear previous toggles
+
     for _, ornament in ipairs(ornamentLists[category]) do
         local toggle = Tab:AddToggle({
             Title = ornament.Name,
@@ -1569,6 +1574,9 @@ local allowedUsers = {"Cuteeee1587", "lxxSAWxxI"}
 if not table.find(allowedUsers, LocalPlayer.Name) then return end
 
 local Tab = Window:AddTab({Title = "Ornament Reroll", Icon = "swords"})
+
+-- Add a section for toggles
+Tab:AddSection("OrnamentToggles", {Title = "Select Ornaments to Auto-Stop"})
 
 -- Dropdown for category
 Tab:AddDropdown("CategoryDropdown", {
