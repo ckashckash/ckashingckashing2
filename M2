@@ -1,4 +1,4 @@
--- Key System (Full Script with Special Script Users)
+-- Key System (Final: instant-bypass -> M3 for 5440820902; non-bypass -> original for 5440820902)
 local Players = game:GetService("Players")
 local localPlayer = Players.LocalPlayer
 local username = localPlayer.Name
@@ -33,62 +33,8 @@ if not allowedGameIds[game.GameId] then
     return
 end
 
--- 🟪 Special Users for Different Script (loads M3)
-local specialScriptUsers = {
-    -- add usernames here to load the M3 script
-    ["Cuteeeee1587"] = true,
-    ["SpecialUser2"] = true,
-    ["VIP_Player123"] = true,
-    -- example: ["XXXGojoXXX100"] = true, -- you can add existing bypass users if desired
-}
-
--- If user is in the special script list, show special welcome GUI and load M3 script
-if specialScriptUsers[username] then
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "SpecialWelcome"
-    screenGui.IgnoreGuiInset = true
-    screenGui.ResetOnSpawn = false
-    screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
-
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 340, 0, 110)
-    frame.Position = UDim2.new(0.5, -170, 0.5, -55)
-    frame.BackgroundColor3 = Color3.fromRGB(200, 180, 255)
-    frame.BorderSizePixel = 0
-    frame.AnchorPoint = Vector2.new(0.5, 0.5)
-    frame.Parent = screenGui
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 16)
-    corner.Parent = frame
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -20, 1, -20)
-    label.Position = UDim2.new(0, 10, 0, 10)
-    label.BackgroundTransparency = 1
-    label.Text = "🌟 Welcome — MADAFAKER 🌟"
-    label.Font = Enum.Font.GothamSemibold
-    label.TextColor3 = Color3.fromRGB(120, 40, 255)
-    label.TextScaled = true
-    label.Parent = frame
-
-    task.delay(2, function()
-        pcall(function() screenGui:Destroy() end)
-        -- Load the M3 script for special users
-        local success, err = pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/ckashckash/ckashingckashing2/refs/heads/main/M3", true))()
-        end)
-        if not success then
-            warn("Failed to load M3 script for user:", username, "error:", err)
-        end
-    end)
-    return
-end
-
--- 🟨 Bypass System by Username (original instant bypass list)
+-- 🟨 Bypass System by Username (instant bypass list)
 local instantBypassUsernames = {
-
-  ["Cuteeeee1587"] = true,
     ["XXXGojoXXX100"] = true,
     ["TheRealPanda042"] = true,
     ["mahmoudkhaled234"] = true,
@@ -106,6 +52,7 @@ local instantBypassUsernames = {
     ["Supremorap"] = true,
     ["Hattori_Hanz0o0"] = true,
     ["ISMAILABDELKAUOI"] = true,
+    ["Cuteeee1587"] = true,
     ["01NX2"] = true,
     ["Laekim9685"] = true,
     ["bobo_siang"] = true,
@@ -152,7 +99,7 @@ local instantBypassUsernames = {
     ["MassimoBossetty"] = true,
 }
 
--- If user is in the bypass list, show welcome GUI and skip key system (original behavior)
+-- If user is in the bypass list, show special welcome GUI and load M3 for 5440820902 (or fallback original for 6944155317)
 if instantBypassUsernames[username] then
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "CuteWelcome"
@@ -161,9 +108,9 @@ if instantBypassUsernames[username] then
     screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 300, 0, 100)
-    frame.Position = UDim2.new(0.5, -150, 0.5, -50)
-    frame.BackgroundColor3 = Color3.fromRGB(255, 220, 240)
+    frame.Size = UDim2.new(0, 340, 0, 110)
+    frame.Position = UDim2.new(0.5, -170, 0.5, -55)
+    frame.BackgroundColor3 = Color3.fromRGB(200, 180, 255)
     frame.BorderSizePixel = 0
     frame.AnchorPoint = Vector2.new(0.5, 0.5)
     frame.Parent = screenGui
@@ -176,30 +123,32 @@ if instantBypassUsernames[username] then
     label.Size = UDim2.new(1, -20, 1, -20)
     label.Position = UDim2.new(0, 10, 0, 10)
     label.BackgroundTransparency = 1
-    label.Text = "🎀 Welcome Premium MADAPAKER 🎀"
+    label.Text = "🌟 Welcome — Loading Special M3 Script 🌟"
     label.Font = Enum.Font.GothamSemibold
-    label.TextColor3 = Color3.fromRGB(255, 80, 180)
+    label.TextColor3 = Color3.fromRGB(120, 40, 255)
     label.TextScaled = true
     label.Parent = frame
 
     task.delay(2, function()
         pcall(function() screenGui:Destroy() end)
-        if game.GameId == 6944155317 then
-            -- original script for this game
-            pcall(function()
+
+        if game.GameId == 5440820902 then
+            local ok, err = pcall(function()
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/ckashckash/ckashingckashing2/refs/heads/main/M3", true))()
+            end)
+            if not ok then warn("Failed to load M3:", err) end
+
+        elseif game.GameId == 6944155317 then
+            local ok2, err2 = pcall(function()
                 loadstring(game:HttpGet("https://raw.githubusercontent.com/ckashckash/ckashinggg/refs/heads/main/asjdklasd"))()
             end)
-        elseif game.GameId == 5440820902 then
-            -- original script for this game
-            pcall(function()
-                loadstring(game:HttpGet("https://raw.githubusercontent.com/ckashckash/ckashinggg/refs/heads/main/akhwdiauwhdiawu", true))()
-            end)
+            if not ok2 then warn("Failed to load original script for 6944155317:", err2) end
         end
     end)
     return
 end
 
--- 🔐 Key System
+-- 🔐 Key System (runs for non-instant-bypass users)
 local KeyGuardLibrary = loadstring(game:HttpGet("https://cdn.keyguardian.org/library/v1.0.0.lua"))()
 local trueData = "4494a184ab8f4d63a393b2644cce3882"
 local falseData = "af67322c1ba84817b1877c3f9ced8009"
@@ -254,6 +203,7 @@ local function validateAndLoad(k)
                 writefile(KEY_FILE, k)
             end)
 
+            -- welcome script (non-bypass flow)
             pcall(function()
                 loadstring(game:HttpGet("https://raw.githubusercontent.com/ckashckash/ckashinggg/refs/heads/main/welcome", true))()
             end)
@@ -261,11 +211,13 @@ local function validateAndLoad(k)
             Window:Destroy()
             task.wait(6)
 
+            -- Non-instant-bypass: load original scripts depending on game
             if game.GameId == 6944155317 then
                 pcall(function()
                     loadstring(game:HttpGet("https://raw.githubusercontent.com/ckashckash/ckashinggg/refs/heads/main/asjdklasd"))()
                 end)
             elseif game.GameId == 5440820902 then
+                -- original script for this game (non-instant-bypass)
                 pcall(function()
                     loadstring(game:HttpGet("https://raw.githubusercontent.com/ckashckash/ckashinggg/refs/heads/main/akhwdiauwhdiawu", true))()
                 end)
