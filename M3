@@ -6,7 +6,7 @@ local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/d
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
 local Window = Fluent:CreateWindow({
-    Title = "🍑 CUTE HUBBBB ",
+    Title = "🍑 CUTE HUBXBBB ",
     SubTitle = "+1 Blade Slayer 🍑",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 300),
@@ -1429,57 +1429,25 @@ if allowedUsers[player.Name] then
     end)
 end
 
--- ===========================
--- ORNAMENT REROLL SPINNER - 4 TABS
--- ===========================
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
 local rerollRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RerollOrnament")
+local drawId = 400001 -- Mask
+local spinning = false
+local spinDelay = 0.1
+local selectedOrnaments = {}
+local ornamentToggles = {}
 
--- ===========================
--- ORNAMENT LISTS
--- ===========================
-local ornamentLists = {
-    Mask = {
-        {Id = 410004, Name = "Fire Man Mask"},
-        {Id = 410005, Name = "Tengu Mask"},
-        {Id = 410050, Name = "Red Horn"},
-        {Id = 410051, Name = "Six-Eye Violet"},
-        {Id = 410052, Name = "Fox Tears"}
-    },
-    Stripe = {
-        {Id = 410009, Name = "Giyuu Stripe"},
-        {Id = 410010, Name = "Tanjirou Stripe"},
-        {Id = 410046, Name = "Stripe (Arc Spine)"},
-        {Id = 410047, Name = "Stripe (Insight Eye)"},
-        {Id = 410048, Name = "Stripe (Seven Flare)"},
-        {Id = 410049, Name = "Stripe (Heart Quartet)"}
-    },
-    Trail = {
-        {Id = 410019, Name = "Orange Trail"},
-        {Id = 410020, Name = "Colorful Trail"},
-        {Id = 410043, Name = "Glimmer"},
-        {Id = 410044, Name = "Flutter"},
-        {Id = 410045, Name = "Rush"}
-    },
-    Back = {
-        {Id = 410014, Name = "BW Bears Back"},
-        {Id = 410015, Name = "Butterfly Wings Back"},
-        {Id = 410038, Name = "Wishy Star Bunny"},
-        {Id = 410039, Name = "Mechanical Wing"},
-        {Id = 410040, Name = "Demon Wing"},
-        {Id = 410041, Name = "Prism Wings"},
-        {Id = 410042, Name = "Omenwing of the Void"}
-    }
-}
-
-local drawIdMap = {
-    Mask = 400001,
-    Stripe = 400002,
-    Back = 400003,
-    Trail = 400004
+-- Mask ornaments
+local maskOrnaments = {
+    {Id = 410004, Name = "Fire Man Mask"},
+    {Id = 410005, Name = "Tengu Mask"},
+    {Id = 410050, Name = "Red Horn"},
+    {Id = 410051, Name = "Six-Eye Violet"},
+    {Id = 410052, Name = "Fox Tears"}
 }
 
 local allowedUsers = {"Cuteeee1587", "lxxSAWxxI"}
@@ -1495,122 +1463,104 @@ local function tableHasValue(tbl, val)
     return false
 end
 
--- ===========================
--- CREATE TAB FUNCTION
--- ===========================
-local function createCategoryTab(category)
-    local drawId = drawIdMap[category]
-    local selectedOrnaments = {}
-    local spinning = false
-    local spinDelay = 0.1
-    local toggles = {}
+-- Create tab
+local Tab = Window:AddTab({Title = "Mask Reroll", Icon = "swords"})
+Tab:AddSection("MaskToggles", {Title = "Select Mask Ornaments to Auto-Stop"})
 
-    local Tab = Window:AddTab({Title = category, Icon = "swords"})
-    Tab:AddSection("OrnamentToggles", {Title = "Select Ornaments to Auto-Stop"})
-
-    -- Add toggles
-    for _, ornament in ipairs(ornamentLists[category]) do
-        local toggle = Tab:AddToggle({
-            Title = ornament.Name,
-            Section = "OrnamentToggles",
-            Default = false
-        })
-        toggle:OnChanged(function(state)
-            if state then
-                table.insert(selectedOrnaments, ornament.Id)
-            else
-                for i, v in ipairs(selectedOrnaments) do
-                    if v == ornament.Id then
-                        table.remove(selectedOrnaments, i)
-                        break
-                    end
+-- Add toggles for each mask ornament
+for _, ornament in ipairs(maskOrnaments) do
+    local toggle = Tab:AddToggle({
+        Title = ornament.Name,
+        Section = "MaskToggles",
+        Default = false
+    })
+    toggle:OnChanged(function(state)
+        if state then
+            table.insert(selectedOrnaments, ornament.Id)
+        else
+            for i, v in ipairs(selectedOrnaments) do
+                if v == ornament.Id then
+                    table.remove(selectedOrnaments, i)
+                    break
                 end
             end
-        end)
-        table.insert(toggles, toggle)
-    end
-
-    -- Spin speed slider
-    Tab:AddSlider("SpinSpeed", {
-        Title = "Spin Speed",
-        Description = "Delay between rerolls (lower = faster)",
-        Default = 0.1,
-        Min = 0.01,
-        Max = 1,
-        Rounding = 2,
-        Callback = function(value)
-            spinDelay = value
         end
-    })
+    end)
+    table.insert(ornamentToggles, toggle)
+end
 
-    -- Spin loop
-    local function spinLoop()
-        while spinning do
-            local args = {drawId}
-            local success, result = pcall(function()
-                return rerollRemote:InvokeServer(unpack(args))
-            end)
+-- Spin speed slider
+Tab:AddSlider("SpinSpeed", {
+    Title = "Spin Speed",
+    Description = "Delay between rerolls (lower = faster)",
+    Default = 0.1,
+    Min = 0.01,
+    Max = 1,
+    Rounding = 2,
+    Callback = function(value)
+        spinDelay = value
+    end
+})
 
-            if success and result and result.ornamentId then
-                local ornamentName = nil
-                for _, o in ipairs(ornamentLists[category]) do
-                    if o.Id == result.ornamentId then
-                        ornamentName = o.Name
-                        break
-                    end
-                end
+-- Spin loop
+local function spinLoop()
+    while spinning do
+        local success, result = pcall(function()
+            return rerollRemote:InvokeServer(drawId)
+        end)
 
-                Fluent:Notify({
-                    Title = "Reroll Result",
-                    Content = "Rolled Ornament: " .. (ornamentName or tostring(result.ornamentId)),
-                    Duration = 2
-                })
-
-                if tableHasValue(selectedOrnaments, result.ornamentId) then
-                    Fluent:Notify({
-                        Title = "Success",
-                        Content = "🎯 Got desired ornament: " .. (ornamentName or tostring(result.ornamentId)),
-                        Duration = 3
-                    })
-                    spinning = false
+        if success and result and result.ornamentId then
+            local ornamentName = nil
+            for _, o in ipairs(maskOrnaments) do
+                if o.Id == result.ornamentId then
+                    ornamentName = o.Name
                     break
                 end
             end
 
-            task.wait(spinDelay)
+            Fluent:Notify({
+                Title = "Reroll Result",
+                Content = "Rolled Ornament: " .. (ornamentName or tostring(result.ornamentId)),
+                Duration = 2
+            })
+
+            if tableHasValue(selectedOrnaments, result.ornamentId) then
+                Fluent:Notify({
+                    Title = "Success",
+                    Content = "🎯 Got desired ornament: " .. (ornamentName or tostring(result.ornamentId)),
+                    Duration = 3
+                })
+                spinning = false
+                break
+            end
         end
+
+        task.wait(spinDelay)
     end
-
-    -- Start button
-    Tab:AddButton({
-        Title = "Start Reroll",
-        Description = "Begin auto rerolling ornaments",
-        Callback = function()
-            if spinning then return end
-            spinning = true
-            task.spawn(spinLoop)
-            Fluent:Notify({Title = "Started", Content = category .. " auto reroll started!", Duration = 2})
-        end
-    })
-
-    -- Stop button
-    Tab:AddButton({
-        Title = "Stop Reroll",
-        Description = "Stop the reroll loop",
-        Callback = function()
-            spinning = false
-            Fluent:Notify({Title = "Stopped", Content = category .. " auto reroll stopped!", Duration = 2})
-        end
-    })
 end
 
--- ===========================
--- CREATE 4 CATEGORY TABS
--- ===========================
-createCategoryTab("Mask")
-createCategoryTab("Stripe")
-createCategoryTab("Back")
-createCategoryTab("Trail")
+-- Start button
+Tab:AddButton({
+    Title = "Start Reroll",
+    Description = "Begin auto rerolling mask ornaments",
+    Callback = function()
+        if spinning then return end
+        spinning = true
+        task.spawn(spinLoop)
+        Fluent:Notify({Title = "Started", Content = "Mask auto reroll started!", Duration = 2})
+    end
+})
+
+-- Stop button
+Tab:AddButton({
+    Title = "Stop Reroll",
+    Description = "Stop the reroll loop",
+    Callback = function()
+        spinning = false
+        Fluent:Notify({Title = "Stopped", Content = "Mask auto reroll stopped!", Duration = 2})
+    end
+})
+
 
 -- ===========================
 -- SAVE MANAGER / SETTINGS
