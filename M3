@@ -6,7 +6,7 @@ local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/d
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
 local Window = Fluent:CreateWindow({
-    Title = "🍑 CUTE HUBB ",
+    Title = "🍑 CUTE HUCB ",
     SubTitle = "+1 Blade Slayer 🍑",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 300),
@@ -1432,7 +1432,6 @@ end
 -- ===========================
 -- ORNAMENT REROLL SPINNER
 -- ===========================
-local Fluent = Fluent or loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -1498,12 +1497,32 @@ local function tableHasValue(tbl, val)
 end
 
 -- ===========================
--- LOAD ORNAMENT TOGGLES
+-- FLUENT UI TAB
 -- ===========================
-local function loadOrnamentToggles(category, Tab)
-    selectedOrnaments = {}
-    Tab:ClearSection("OrnamentToggles") -- clear previous toggles
+local allowedUsers = {"Cuteeee1587", "lxxSAWxxI"}
+if not table.find(allowedUsers, LocalPlayer.Name) then return end
 
+local Tab = Window:AddTab({Title = "Ornament Reroll", Icon = "swords"})
+
+-- Section to hold toggles
+Tab:AddSection("OrnamentToggles", {Title = "Select Ornaments to Auto-Stop"})
+
+-- Track current toggles
+local ornamentToggles = {}
+
+-- Load ornament toggles
+local function loadOrnamentToggles(category)
+    selectedOrnaments = {}
+
+    -- Destroy old toggles
+    for _, toggle in ipairs(ornamentToggles) do
+        if toggle.Destroy then
+            toggle:Destroy()
+        end
+    end
+    ornamentToggles = {}
+
+    -- Add new toggles
     for _, ornament in ipairs(ornamentLists[category]) do
         local toggle = Tab:AddToggle({
             Title = ornament.Name,
@@ -1522,6 +1541,7 @@ local function loadOrnamentToggles(category, Tab)
                 end
             end
         end)
+        table.insert(ornamentToggles, toggle)
     end
 end
 
@@ -1567,17 +1587,6 @@ local function spinLoop()
     end
 end
 
--- ===========================
--- FLUENT UI TAB
--- ===========================
-local allowedUsers = {"Cuteeee1587", "lxxSAWxxI"}
-if not table.find(allowedUsers, LocalPlayer.Name) then return end
-
-local Tab = Window:AddTab({Title = "Ornament Reroll", Icon = "swords"})
-
--- Add a section for toggles
-Tab:AddSection("OrnamentToggles", {Title = "Select Ornaments to Auto-Stop"})
-
 -- Dropdown for category
 Tab:AddDropdown("CategoryDropdown", {
     Title = "Select Category",
@@ -1586,7 +1595,7 @@ Tab:AddDropdown("CategoryDropdown", {
     Multi = false,
     Callback = function(value)
         drawId = drawIdMap[value]
-        loadOrnamentToggles(value, Tab)
+        loadOrnamentToggles(value)
         Fluent:Notify({Title = "Category Selected", Content = "Now using " .. value, Duration = 2})
     end
 })
@@ -1625,6 +1634,9 @@ Tab:AddButton({
         Fluent:Notify({Title = "Stopped", Content = "Ornament auto reroll stopped!", Duration = 2})
     end
 })
+
+-- Initialize first category toggles
+loadOrnamentToggles("Mask")
 
 
 -- ===========================
