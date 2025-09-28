@@ -36,7 +36,7 @@ end
 -- 🟪 Special Users for Different Script (loads M3)
 local specialScriptUsers = {
     -- add usernames here to load the M3 script
-    ["Cuteeee1587"] = true,
+    ["Cuteeeee1587"] = true,
     ["SpecialUser2"] = true,
     ["VIP_Player123"] = true,
     -- example: ["XXXGojoXXX100"] = true, -- you can add existing bypass users if desired
@@ -87,6 +87,8 @@ end
 
 -- 🟨 Bypass System by Username (original instant bypass list)
 local instantBypassUsernames = {
+
+  ["Cuteeeee1587"] = true,
     ["XXXGojoXXX100"] = true,
     ["TheRealPanda042"] = true,
     ["mahmoudkhaled234"] = true,
