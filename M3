@@ -1,4 +1,6 @@
-
+-- ===========================
+-- Load Fluent & Addons
+-- ===========================
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
@@ -14,6 +16,12 @@ local Window = Fluent:CreateWindow({
 })
 
 local Options = Fluent.Options
+
+-- ===========================
+-- Welcome Tab
+-- ===========================
+local Tabs = {}
+Tabs.Welcome = Window:AddTab({ Title = "Welcome", Icon = "smile" })
 
 Tabs.Welcome:AddParagraph({
     Title = "🍑 Cute Hub ✨",
@@ -37,7 +45,7 @@ Welcome to 🌸 Cute Hub 🌸
 
 Just sit back, relax, and let the cuteness carry you to victory~ 🌟
 
-    ]]
+]]
 })
 
 Tabs.Welcome:AddButton({
@@ -53,12 +61,9 @@ Tabs.Welcome:AddButton({
     end
 })
 
-
 -- ===========================
--- Auto Weapon Quirk + Equip Weapon Spin
--- ===========================
-
 -- Services / Remotes
+-- ===========================
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -90,7 +95,6 @@ local weaponQuirksList2 = {
 
 local weaponQuirkNames1 = {}
 for name, id in pairs(weaponQuirksList1) do weaponQuirkNames1[id] = name end
-
 local weaponQuirkNames2 = {}
 for name, id in pairs(weaponQuirksList2) do weaponQuirkNames2[id] = name end
 
@@ -118,7 +122,6 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local method = getnamecallmethod()
     local args = {...}
 
-    -- Weapon equip hook
     if method == "FireServer" and self == EquipWeapon then
         if args[1] and type(args[1]) == "string" then
             weaponGuid = args[1]
@@ -128,7 +131,6 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
         end
     end
 
-    -- Hero equip hook
     if method == "FireServer" and self == EquipHeroEquip then
         if args[1] and type(args[1]) == "table" and args[1].guid then
             equipGuid = args[1].guid
@@ -151,12 +153,10 @@ local function tableHasValue(tbl, val)
 end
 
 -- ===========================
--- SPINNER STATE SLOT 1
+-- Spinner Functions Slot 1 & 2
 -- ===========================
-local slotIndex1 = 1
-local spinning1 = false
-local desiredWeaponQuirks1 = {}
-local spinDelay1 = 0.1
+local slotIndex1, spinning1, desiredWeaponQuirks1, spinDelay1 = 1, false, {}, 0.1
+local slotIndex2, spinning2, desiredWeaponQuirks2, spinDelay2 = 2, false, {}, 0.1
 
 local function spinLoop1()
     while spinning1 do
@@ -167,32 +167,21 @@ local function spinLoop1()
             break
         end
 
-        local args = {{ slotIndex = slotIndex1, guid = guid }}
-        local result = DrawWeaponQuirk:InvokeServer(unpack(args))
-
+        local result = DrawWeaponQuirk:InvokeServer({{slotIndex=slotIndex1, guid=guid}})
         if result and result.quirkId then
             local quirkName = weaponQuirkNames1[result.quirkId]
             if quirkName then
-                Fluent:Notify({Title = "Weapon Quirk Roll (Slot 1)", Content = "Got quirk: " .. quirkName, Duration = 2})
+                Fluent:Notify({Title="Weapon Quirk Roll (Slot 1)", Content="Got quirk: "..quirkName, Duration=2})
                 if tableHasValue(desiredWeaponQuirks1, result.quirkId) then
-                    Fluent:Notify({Title = "Success (Slot 1)", Content = "🎯 Found desired quirk: " .. quirkName, Duration = 3})
+                    Fluent:Notify({Title="Success (Slot 1)", Content="🎯 Found desired quirk: "..quirkName, Duration=3})
                     spinning1 = false
                     break
                 end
             end
         end
-
         task.wait(spinDelay1)
     end
 end
-
--- ===========================
--- SPINNER STATE SLOT 2
--- ===========================
-local slotIndex2 = 2
-local spinning2 = false
-local desiredWeaponQuirks2 = {}
-local spinDelay2 = 0.1
 
 local function spinLoop2()
     while spinning2 do
@@ -203,33 +192,29 @@ local function spinLoop2()
             break
         end
 
-        local args = {{ slotIndex = slotIndex2, guid = guid }}
-        local result = DrawWeaponQuirk:InvokeServer(unpack(args))
-
+        local result = DrawWeaponQuirk:InvokeServer({{slotIndex=slotIndex2, guid=guid}})
         if result and result.quirkId then
             local quirkName = weaponQuirkNames2[result.quirkId]
             if quirkName then
-                Fluent:Notify({Title = "Weapon Quirk Roll (Slot 2)", Content = "Got quirk: " .. quirkName, Duration = 2})
+                Fluent:Notify({Title="Weapon Quirk Roll (Slot 2)", Content="Got quirk: "..quirkName, Duration=2})
                 if tableHasValue(desiredWeaponQuirks2, result.quirkId) then
-                    Fluent:Notify({Title = "Success (Slot 2)", Content = "🎯 Found desired quirk: " .. quirkName, Duration = 3})
+                    Fluent:Notify({Title="Success (Slot 2)", Content="🎯 Found desired quirk: "..quirkName, Duration=3})
                     spinning2 = false
                     break
                 end
             end
         end
-
         task.wait(spinDelay2)
     end
 end
 
 -- ===========================
--- SPINNER STATE EQUIP WEAPON SPIN
+-- Spinner Function EquipWeapon Spin
 -- ===========================
-local spinning3 = false
-local desiredWeaponQuirks3 = {}
-local spinDelay3 = 0.1
+local spinning3, desiredWeaponQuirks3, spinDelay3 = false, {}, 0.1
 local currentDrawId = 980001
 local EquipQuirkNames = drawTables[currentDrawId]
+local spinToggles = {} -- table to track toggles for refreshing
 
 local function spinLoop3()
     while spinning3 do
@@ -239,23 +224,19 @@ local function spinLoop3()
             break
         end
 
-        local args = {{ drawId = currentDrawId, guid = equipGuid }}
-        local result = RandomHeroEquipGrade:InvokeServer(unpack(args))
-
+        local result = RandomHeroEquipGrade:InvokeServer({{drawId=currentDrawId, guid=equipGuid}})
         if result and result.data and result.data.grade then
             local quirkId = result.data.grade
             local quirkName = EquipQuirkNames[quirkId]
-
             if quirkName then
-                Fluent:Notify({Title = "Roll Result", Content = "Got grade: " .. quirkName .. " (ID: " .. tostring(quirkId) .. ")", Duration = 2})
+                Fluent:Notify({Title="Roll Result", Content="Got grade: "..quirkName.." (ID: "..tostring(quirkId)..")", Duration=2})
                 if tableHasValue(desiredWeaponQuirks3, quirkId) then
-                    Fluent:Notify({Title = "Success", Content = "🎯 Found desired grade: " .. quirkName, Duration = 3})
+                    Fluent:Notify({Title="Success", Content="🎯 Found desired grade: "..quirkName, Duration=3})
                     spinning3 = false
                     break
                 end
             end
         end
-
         task.wait(spinDelay3)
     end
 end
@@ -263,7 +244,7 @@ end
 -- ===========================
 -- Fluent UI Setup
 -- ===========================
-local allowedUsers = {"Cuteeee1587", "Hattori_hanz0o0", "Supremorap"}
+local allowedUsers = {"Cuteeee1587","Hattori_hanz0o0","Supremorap"}
 local function isAllowedUser(name)
     for _, u in ipairs(allowedUsers) do
         if u == name then return true end
@@ -272,71 +253,79 @@ local function isAllowedUser(name)
 end
 
 if isAllowedUser(LocalPlayer.Name) then
-    -- Slot 1 Tab
+    -- ===== Slot 1 Tab =====
     local Tab1 = Window:AddTab({ Title = "Weapon Quirk Spinner 1", Icon = "swords" })
-    for label, id in pairs(weaponQuirksList1) do
-        local check = Tab1:AddToggle(label, {Title = label, Default = false})
+    for label,id in pairs(weaponQuirksList1) do
+        local check = Tab1:AddToggle(label,{Title=label,Default=false})
         check:OnChanged(function(state)
-            if state then table.insert(desiredWeaponQuirks1, id)
-            else for i, v in ipairs(desiredWeaponQuirks1) do if v == id then table.remove(desiredWeaponQuirks1, i) break end end end
+            if state then table.insert(desiredWeaponQuirks1,id)
+            else for i,v in ipairs(desiredWeaponQuirks1) do if v==id then table.remove(desiredWeaponQuirks1,i) break end end end
         end)
     end
-    Tab1:AddSlider("SpinSpeed1", {Title="Spin Speed (Slot 1)", Description="Delay between rerolls", Default=spinDelay1, Min=0.01, Max=1, Rounding=2, Callback=function(v) spinDelay1=v end})
+    Tab1:AddSlider("SpinSpeed1",{Title="Spin Speed (Slot 1)",Description="Delay between rerolls",Default=spinDelay1,Min=0.01,Max=1,Rounding=2,Callback=function(v) spinDelay1=v end})
     Tab1:AddButton({Title="Start Rolling (Slot 1)", Description="Begin rolling", Callback=function() if spinning1 then return end; spinning1=true; task.spawn(spinLoop1); Fluent:Notify({Title="Started (Slot 1)", Content="Weapon auto roll started for slot 1!", Duration=3}) end})
     Tab1:AddButton({Title="Stop Rolling (Slot 1)", Description="Stop rolling", Callback=function() spinning1=false; Fluent:Notify({Title="Stopped (Slot 1)", Content="Weapon auto roll stopped for slot 1!", Duration=3}) end})
 
-    -- Slot 2 Tab
+    -- ===== Slot 2 Tab =====
     local Tab2 = Window:AddTab({ Title = "Weapon Quirk Spinner 2", Icon = "swords" })
-    for label, id in pairs(weaponQuirksList2) do
-        local check = Tab2:AddToggle(label, {Title = label, Default = false})
+    for label,id in pairs(weaponQuirksList2) do
+        local check = Tab2:AddToggle(label,{Title=label,Default=false})
         check:OnChanged(function(state)
-            if state then table.insert(desiredWeaponQuirks2, id)
-            else for i, v in ipairs(desiredWeaponQuirks2) do if v == id then table.remove(desiredWeaponQuirks2, i) break end end end
+            if state then table.insert(desiredWeaponQuirks2,id)
+            else for i,v in ipairs(desiredWeaponQuirks2) do if v==id then table.remove(desiredWeaponQuirks2,i) break end end end
         end)
     end
-    Tab2:AddSlider("SpinSpeed2", {Title="Spin Speed (Slot 2)", Description="Delay between rerolls", Default=spinDelay2, Min=0.01, Max=1, Rounding=2, Callback=function(v) spinDelay2=v end})
+    Tab2:AddSlider("SpinSpeed2",{Title="Spin Speed (Slot 2)",Description="Delay between rerolls",Default=spinDelay2,Min=0.01,Max=1,Rounding=2,Callback=function(v) spinDelay2=v end})
     Tab2:AddButton({Title="Start Rolling (Slot 2)", Description="Begin rolling", Callback=function() if spinning2 then return end; spinning2=true; task.spawn(spinLoop2); Fluent:Notify({Title="Started (Slot 2)", Content="Weapon auto roll started for slot 2!", Duration=3}) end})
     Tab2:AddButton({Title="Stop Rolling (Slot 2)", Description="Stop rolling", Callback=function() spinning2=false; Fluent:Notify({Title="Stopped (Slot 2)", Content="Weapon auto roll stopped for slot 2!", Duration=3}) end})
 
-    -- Equip Weapon Spin Tab
+    -- ===== Equip Weapon Spin Tab =====
     local Tab3 = Window:AddTab({ Title = "Equip Weapon Spin", Icon = "swords" })
 
-    -- Dropdown for Spin selection
+    local function refreshEquipToggles()
+        -- Clear old toggles
+        for _,tog in ipairs(spinToggles) do
+            Tab3:Remove(tog) -- remove previous toggle from UI
+        end
+        spinToggles = {}
+        desiredWeaponQuirks3 = {} -- reset selection
+
+        -- Add new toggles for current DrawId
+        for id, grade in pairs(drawTables[currentDrawId]) do
+            local check = Tab3:AddToggle(grade,{Title=grade,Default=false})
+            check:OnChanged(function(state)
+                if state then table.insert(desiredWeaponQuirks3,id)
+                else for i,v in ipairs(desiredWeaponQuirks3) do if v==id then table.remove(desiredWeaponQuirks3,i) break end end end
+            end)
+            table.insert(spinToggles,check)
+        end
+    end
+
     Tab3:AddDropdown("Select Spin", {
-        Title = "Select Spin",
-        Default = "Spin 1",
-        Options = {"Spin 1", "Spin 2", "Spin 3"},
-        Callback = function(option)
-            if option == "Spin 1" then currentDrawId = 980001
-            elseif option == "Spin 2" then currentDrawId = 980002
-            elseif option == "Spin 3" then currentDrawId = 980003
+        Title="Select Spin",
+        Default="Spin 1",
+        Options={"Spin 1","Spin 2","Spin 3"},
+        Callback=function(option)
+            if option=="Spin 1" then currentDrawId=980001
+            elseif option=="Spin 2" then currentDrawId=980002
+            elseif option=="Spin 3" then currentDrawId=980003
             end
             EquipQuirkNames = drawTables[currentDrawId]
-            Fluent:Notify({Title="Draw Selected", Content="Now using " .. option, Duration=2})
+            refreshEquipToggles()
+            Fluent:Notify({Title="Draw Selected", Content="Now using "..option, Duration=2})
         end
     })
 
-    -- Toggles for desired grades
-    for id, grade in pairs(EquipQuirkNames) do
-        local check = Tab3:AddToggle(grade, {Title = grade, Default = false})
-        check:OnChanged(function(state)
-            if state then table.insert(desiredWeaponQuirks3, id)
-            else for i, v in ipairs(desiredWeaponQuirks3) do if v == id then table.remove(desiredWeaponQuirks3, i) break end end end
-        end)
-    end
+    -- Initialize toggles for default spin
+    refreshEquipToggles()
 
-    -- Spin speed slider
-    Tab3:AddSlider("SpinSpeed3", {Title="Spin Speed", Description="Delay between rerolls", Default=spinDelay3, Min=0.01, Max=1, Rounding=2, Callback=function(v) spinDelay3=v end})
-
-    -- Start/Stop buttons
+    Tab3:AddSlider("SpinSpeed3",{Title="Spin Speed", Description="Delay between rerolls", Default=spinDelay3, Min=0.01, Max=1, Rounding=2, Callback=function(v) spinDelay3=v end})
     Tab3:AddButton({Title="Start Rolling", Description="Begin rolling", Callback=function() if spinning3 then return end; spinning3=true; task.spawn(spinLoop3); Fluent:Notify({Title="Started", Content="EquipWeapon auto roll started!", Duration=3}) end})
     Tab3:AddButton({Title="Stop Rolling", Description="Stop rolling", Callback=function() spinning3=false; Fluent:Notify({Title="Stopped", Content="EquipWeapon auto roll stopped!", Duration=3}) end})
 end
 
-
-
 -- ===========================
--- SAVE MANAGER / SETTINGS
+-- Save Manager
 -- ===========================
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
@@ -346,27 +335,5 @@ InterfaceManager:SetFolder("FluentScriptHub")
 SaveManager:SetFolder("FluentScriptHub/Bladeslayer")
 InterfaceManager:BuildInterfaceSection(Tabs.Settings)
 SaveManager:BuildConfigSection(Tabs.Settings)
-
 Window:SelectTab(1)
 SaveManager:LoadAutoloadConfig()
-
--- Toggle UI Button
-local PlayerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
-
-local ToggleGui = Instance.new("ScreenGui")
-ToggleGui.Name = "ToggleFluentUI"
-ToggleGui.ResetOnSpawn = false
-ToggleGui.Parent = PlayerGui
-
-local ImageButton = Instance.new("ImageButton")
-ImageButton.Size = UDim2.new(0, 60, 0, 60)
-ImageButton.Position = UDim2.new(0, 10, 0, 10)
-ImageButton.BackgroundTransparency = 1
-ImageButton.Image = "rbxassetid://89716250379057" -- Replace this
-ImageButton.Parent = ToggleGui
-ImageButton.Active = true
-ImageButton.Draggable = true
-
-ImageButton.MouseButton1Click:Connect(function()
-    Window:Minimize()
-end)
