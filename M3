@@ -1,1 +1,1920 @@
 
+
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
+
+local Window = Fluent:CreateWindow({
+    Title = "🍑 CUTE HUB ",
+    SubTitle = "+1 Blade Slayer 🍑",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(480, 300),
+    Acrylic = true,
+    Theme = "Dark",
+    MinimizeKey = Enum.KeyCode.K
+})
+
+local Tabs = {
+    Welcome = Window:AddTab({ Title = "Welcome", Icon = "flower" }),
+    Main = Window:AddTab({ Title = "Main", Icon = "home" }),
+    Player = Window:AddTab({ Title = "Player", Icon = "heart" }),
+    Farm = Window:AddTab({ Title = "Farm", Icon = "swords" }),
+    Mounts = Window:AddTab({ Title = "Mounts", Icon = "car" }),
+    Egg = Window:AddTab({ Title = "Egg/Auto Spin", Icon = "egg" }),
+	Machine = Window:AddTab({ Title = "Machine", Icon = "aperture" }),
+    Gem = Window:AddTab({ Title = "Gem", Icon = "gem" }),
+    Teleport = Window:AddTab({ Title = "Teleport", Icon = "map-pin" }),
+	Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
+}
+
+local Options = Fluent.Options
+
+Tabs.Welcome:AddParagraph({
+    Title = "🍑 Cute Hub ✨",
+    Content = [[
+
+Welcome to 🌸 Cute Hub 🌸
+
+
+💖 Features:
+• 🖱️ Auto Click
+• 🧲 Auto Collect Drop
+• ⚔️ Kill Aura
+• 🏰 Auto Dungeon
+• 💰 Auto Fuse Gem 1-12
+• 🐴 Use All Mounts
+• 🔧 Auto Fuse Weapon
+• 🗑️ Auto Delete Weapon
+• 🔁 Auto Reborn
+• 💤 Anti AFK
+• 🎁 And so much more~!
+
+Just sit back, relax, and let the cuteness carry you to victory~ 🌟
+
+    ]]
+})
+
+Tabs.Welcome:AddButton({
+    Title = "Discord",
+    Description = "Click to copy the Discord invite link.",
+    Callback = function()
+        if setclipboard then
+            setclipboard("https://discord.gg/pazV3CdReC")
+            print("Discord link copied to clipboard!")
+        else
+            warn("Clipboard function not available.")
+        end
+    end
+})
+
+
+
+
+local Input = Tabs.Player:AddInput("MovementSpeedInput", {
+    Title = "Movement Speed",
+    Default = "80",  -- default speed as string
+    Placeholder = "Enter speed (0-500)",
+    Callback = function(value)
+        local speed = tonumber(value)
+        if speed then
+            -- clamp the speed between 0 and 500
+            speed = math.clamp(speed, 0, 500)
+
+            local player = game.Players.LocalPlayer
+            local character = player.Character or player.CharacterAdded:Wait()
+            local humanoid = character:WaitForChild("Humanoid")
+
+            humanoid.WalkSpeed = speed
+        else
+            warn("Invalid speed input: ".. tostring(value))
+        end
+    end
+})
+
+Input:OnChanged(function()
+    print("Input changed:", Input.Value)
+end)
+
+Tabs.Main:AddButton({
+    Title = "Claim Group Chest",
+    Description = nil,
+    Callback = function()
+            game:GetService("ReplicatedStorage").Remotes.ClaimGroupReward:InvokeServer()
+    end
+})
+
+local player = game:GetService("Players").LocalPlayer
+local StarterGui = game:GetService("StarterGui")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local fuseRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("FuseGem")
+
+local gemsPanel = nil
+local fuseGemRunning = {} -- stores toggle states per level
+
+-- Notification helper
+local function notify(title, text, duration)
+    StarterGui:SetCore("SendNotification", {
+        Title = title,
+        Text = text,
+        Duration = duration or 5
+    })
+end
+
+-- Detect GemsPanel in background
+task.spawn(function()
+    while not gemsPanel do
+        pcall(function()
+            local gui = player:WaitForChild("PlayerGui")
+            local panel = gui:FindFirstChild("GemsPanel", true)
+            if panel then
+                gemsPanel = panel:WaitForChild("Frame")
+                                  :WaitForChild("BgImage")
+                                  :WaitForChild("List")
+                                  :WaitForChild("ScrollingFrame")
+            end
+        end)
+        task.wait(1)
+    end
+end)
+
+-- Function to create fuser toggle for each level
+local function createFuseToggle(level)
+    local id = "Fuse"..level
+    local toggle = Tabs.Gem:AddToggle(id, {
+        Title = "Auto Fuse Gem (Lv."..level..")",
+        Default = false
+    })
+
+    toggle:OnChanged(function()
+        fuseGemRunning[level] = Options[id].Value
+
+        if fuseGemRunning[level] then
+            if not gemsPanel then
+                notify("Auto Fuse", "Open your Gem Bag to start fusing Lv."..level.." gems.")
+            end
+
+            task.spawn(function()
+                while fuseGemRunning[level] do
+                    if gemsPanel then
+                        local gemList = {}
+
+                        -- Collect gems of this level
+                        for _, button in pairs(gemsPanel:GetChildren()) do
+                            if button:IsA("ImageButton") and button.Visible then
+                                local numText = button:FindFirstChild("NumText")
+                                if numText and numText:IsA("TextLabel") and numText.ContentText == "Lv."..level then
+                                    table.insert(gemList, button.Name)
+                                end
+                            end
+                        end
+
+                        -- Fuse or notify depending on gem count
+                        if #gemList >= 5 then
+                            while #gemList >= 5 do
+                                local args = {
+                                    { gemList[1], gemList[2], gemList[3], gemList[4], gemList[5] }
+                                }
+                                fuseRemote:InvokeServer(unpack(args))
+
+                                -- remove the used 5 from list
+                                for i = 1, 5 do
+                                    table.remove(gemList, 1)
+                                end
+                            end
+                        elseif #gemList > 0 then
+                            notify("Auto Fuse Lv."..level, "Not enough gems (need at least 5).")
+                        else
+                            notify("Auto Fuse Lv."..level, "No gems found.")
+                        end
+                    end
+                    task.wait(0.5) -- safer loop interval
+                end
+            end)
+        end
+    end)
+
+    Options[id]:SetValue(false) -- default off
+end
+
+-- Create toggles for Lv.1 → Lv.12
+for i = 1, 12 do
+    createFuseToggle(i)
+end
+
+
+Tabs.Main:AddButton({
+    Title = "Auto Claim Pumpkin",
+    Description = "Claims all pumpkins (Maps 1-27)",
+    Callback = function()
+        local replicatedStorage = game:GetService("ReplicatedStorage")
+        local remote = replicatedStorage:WaitForChild("Remotes"):WaitForChild("GetBoxGift")
+
+        local mapData = {
+            [50001] = {"171001", "171002", "171003", "171004", "171005"},
+            [50002] = {"172001", "172002", "172003", "172004", "172005"},
+            [50003] = {"173001", "173002", "173003", "173004", "173005"},
+            [50004] = {"174001", "174002", "174003", "174004", "174005"},
+            [50005] = {"175001", "175002", "175003", "175004", "175005"},
+            [50006] = {"176001", "176002", "176003", "176004", "176005"},
+            [50007] = {"177001", "177002", "177003", "177004", "177005"},
+            [50008] = {"178001", "178002", "178003", "178004", "178005"},
+            [50009] = {"179001", "179002", "179003", "179004", "179005"},
+            [50010] = {"175001", "175002", "175003", "175004", "175005"},
+            [50020] = {"175001", "175002", "175003", "175004", "175005"},
+            [50021] = {"175001", "175002", "175003", "175004", "175005"},
+            [50022] = {"175001", "175002", "175003", "175004", "175005"},
+            [50023] = {"175001", "175002", "175003", "175004", "175005"},
+            [50024] = {"175001", "175002", "175003", "175004", "175005"},
+            [50025] = {"175001", "175002", "175003", "175004", "175005"},
+            [50026] = {"175001", "175002", "175003", "175004", "175005"},
+            [50027] = {"175001", "175002", "175003", "175004", "175005"},
+            [50028] = {"175001", "175002", "175003", "175004", "175005"},
+            [50029] = {"185001", "185002", "185003", "185004", "185005"},
+            [50030] = {"175001", "175002", "175003", "175004", "175005"},
+            [50031] = {"175001", "175002", "175003", "175004", "175005"},
+            [50032] = {"175001", "175002", "175003", "175004", "175005"},
+            [50033] = {"175001", "175002", "175003", "175004", "175005"},
+            [50034] = {"175001", "175002", "175003", "175004", "175005"},
+            [50035] = {"175001", "175002", "175003", "175004", "175005"},
+            [50036] = {"175001", "175002", "175003", "175004", "175005"},
+        }
+
+        -- Build a sorted list of map IDs
+        local orderedMaps = {}
+        for mapId in pairs(mapData) do
+            table.insert(orderedMaps, mapId)
+        end
+        table.sort(orderedMaps)
+
+        -- Counter (1 → 27)
+        local mapCounter = 1
+        for _, mapId in ipairs(orderedMaps) do
+            local pointIds = mapData[mapId]
+
+            for _, pointId in ipairs(pointIds) do
+                local args = {
+                    [1] = {
+                        ["mapId"] = mapId,
+                        ["pointId"] = pointId
+                    }
+                }
+                remote:FireServer(unpack(args))
+                task.wait(0.1)
+            end
+
+            game.StarterGui:SetCore("SendNotification", {
+                Title = "👀",
+                Text = "Map " .. mapCounter .. " Claimed",
+                Duration = 3
+            })
+
+            mapCounter += 1
+            task.wait(0.1)
+        end
+
+        -- Final notification
+        game.StarterGui:SetCore("SendNotification", {
+            Title = "✅ Auto Pumpkin ✅",
+            Text = "🎃 You’ve Harvested Every Pumpkin!",
+            Duration = 5
+        })
+    end
+})
+
+
+-- Toggle for Auto Forge
+local Toggle = Tabs.Main:AddToggle("AutoForge", {
+    Title = "Auto Forge (Equipped Weapon)",
+    Default = false
+})
+
+Toggle:OnChanged(function()
+    while Options.AutoForge.Value do
+        task.wait(0.5) -- 
+
+        local Players = game:GetService("Players")
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local StarterGui = game:GetService("StarterGui")
+        local player = Players.LocalPlayer
+
+        -- Try to get ScrollingFrame safely
+        local success, scrollingFrame = pcall(function()
+            return player.PlayerGui
+                .EquipmentPanel
+                .Frame
+                .EquipmentPackage
+                .Right
+                .Mid
+                .ScrollingFrame
+        end)
+
+        if not success or scrollingFrame == nil then
+            StarterGui:SetCore("SendNotification", {
+                Title = "⚠️ Notice",
+                Text = "Please open your Weapon Bag first!",
+                Duration = 3,
+            })
+            continue
+        end
+
+        -- Find the first visible one that isn’t EquipmentTemplate
+        local selectedId = nil
+        for _, child in ipairs(scrollingFrame:GetChildren()) do
+            if child.Name ~= "EquipmentTemplate" then
+                local equipSign = child:FindFirstChild("EquipSignImage")
+                if equipSign then
+                    local img = equipSign:FindFirstChild("ImageLabel")
+                    if img and img.Visible then
+                        selectedId = child.Name
+                        break
+                    end
+                end
+            end
+        end
+
+        -- If found, forge
+        if selectedId then
+            local args = { selectedId }
+            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ForgeWeapon"):InvokeServer(unpack(args))
+        else
+            StarterGui:SetCore("SendNotification", {
+                Title = "⚠️ Notice",
+                Text = "No valid visible equipment found!",
+                Duration = 3,
+            })
+        end
+    end
+end)
+
+Options.AutoForge:SetValue(false)
+
+Tabs.Main:AddButton({
+    Title = "Claim Gift Code",
+    Description = "Auto Claim All Available Gift Codes",
+    Callback = function()
+            for i = 50, 200 do
+			local args = {
+				i
+			}
+			game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("GiftCodeReceived"):InvokeServer(unpack(args))
+			wait(0.01) 
+		end
+    end
+})
+
+local Toggle = Tabs.Egg:AddToggle("AllBoxes", {Title = "Open All Antique Boxes", Default = false})
+
+Toggle:OnChanged(function()
+    while Options.AllBoxes.Value do
+        for i = 1, 5 do
+            local args = { 820000 + i }
+            game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("OpenAntiqueBox"):FireServer(unpack(args))
+            wait(0.02) -- delay between each box
+        end
+        wait(0.05) -- delay before repeating
+    end
+end)
+
+Options.AllBoxes:SetValue(false)
+
+
+local Toggle = Tabs.Egg:AddToggle("H1", {Title = "Auto Spin Silver Key", Default = false})
+
+Toggle:OnChanged(function()
+
+    while Options.H1.Value do
+    local args = {
+        1
+    }
+    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("RerollHalo"):InvokeServer(unpack(args))
+    wait(0.1) -- Optional delay to avoid server issues; adjust or remove as needed
+    end
+end)
+
+Options.H1:SetValue(false)
+
+
+local Toggle = Tabs.Egg:AddToggle("H2", {Title = "Auto Spin Gold Key", Default = false})
+
+Toggle:OnChanged(function()
+
+    while Options.H2.Value do
+    local args = {
+        2
+    }
+    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("RerollHalo"):InvokeServer(unpack(args))
+    wait(0.1) -- Optional delay to avoid server issues; adjust or remove as needed
+    end
+end)
+
+Options.H2:SetValue(false)
+
+
+local Toggle = Tabs.Egg:AddToggle("H3", {Title = "Auto Spin Diamond Key", Default = false})
+
+Toggle:OnChanged(function()
+
+    while Options.H3.Value do
+    local args = {
+        3
+    }
+    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("RerollHalo"):InvokeServer(unpack(args))
+    wait(0.1) -- Optional delay to avoid server issues; adjust or remove as needed
+    end
+end)
+
+Options.H3:SetValue(false)
+
+
+
+local Toggle = Tabs.Player:AddToggle("M4", {Title = "Auto Reborn", Default = false})
+
+Toggle:OnChanged(function()
+
+    while Options.M4.Value do
+  
+        game:GetService("ReplicatedStorage")["Remotes"]["PlayerReborn"]:FireServer()
+
+    wait(1) -- Optional delay to avoid server issues; adjust or remove as needed
+    end
+end)
+
+Options.M4:SetValue(false)
+
+
+local Toggle = Tabs.Farm:AddToggle("M5", {Title = "Auto Power", Default = false})
+
+Toggle:OnChanged(function()
+
+    while Options.M5.Value do
+    local args = {
+    {}
+}
+game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("PlayerClickAttack"):FireServer(unpack(args))
+                    wait(0.01)
+                end
+end)
+
+Options.M5:SetValue(false)
+
+
+
+
+
+        local RunService = game:GetService("RunService")
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local EnemiesFolder = workspace:WaitForChild("Enemys")
+
+        local ClickEnemyRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ClickEnemy")
+        local PlayerClickAttackSkillRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("PlayerClickAttack")
+
+local Toggle = Tabs.Farm:AddToggle("M6", {Title = "Auto Farm V1", Default = false})
+
+Toggle:OnChanged(function()
+
+while Options.M6.Value do
+
+                for _, enemyModel in ipairs(EnemiesFolder:GetChildren()) do
+                    local enemyGuid = enemyModel:GetAttribute("EnemyGuid")
+                    local enemyPos = enemyModel:FindFirstChild("HumanoidRootPart") and enemyModel.HumanoidRootPart.Position
+                    local attackEnemyGUID = enemyModel:GetAttribute("EnemyGuid")
+
+                    if enemyGuid and enemyPos then
+                        ClickEnemyRemote:InvokeServer({
+                            enemyGuid = enemyGuid,
+                            enemyPos = enemyPos
+                        })
+                    end
+
+                    if attackEnemyGUID then
+                        PlayerClickAttackSkillRemote:FireServer({
+                            attackEnemyGUID = attackEnemyGUID
+                        })
+                    end
+                end
+                RunService.Heartbeat:Wait()
+            end
+        end)
+
+Options.M6:SetValue(false)
+
+-- 
+
+local RunService = game:GetService("RunService")
+
+-- Define functions just like your original
+local function ClickAllEnemies()
+    local ClickEnemy = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("ClickEnemy")
+    local enemiesFolder = workspace:WaitForChild("Enemys")
+
+    while Options.M8.Value do
+        RunService.Heartbeat:Wait()
+
+        for _, enemy in ipairs(enemiesFolder:GetChildren()) do
+            if enemy:IsA("Model") and enemy:GetAttribute("EnemyGuid") then
+                local enemyGuid = enemy:GetAttribute("EnemyGuid")
+                local enemyPos = enemy:GetPivot().Position
+
+                local args = {
+                    {
+                        enemyGuid = enemyGuid,
+                        enemyPos = Vector3.new(enemyPos.X, enemyPos.Y, enemyPos.Z)
+                    }
+                }
+
+                ClickEnemy:InvokeServer(unpack(args))
+            end
+        end
+    end
+end
+
+local function AutoUseSkill()
+    local RespirationSkillHarm = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("RespirationSkillHarm")
+
+    while Options.M8.Value do
+        task.wait(0.1)
+
+        local args = {
+            {
+                harmIndex = 1,
+                skillType = 1,
+                skillId = 200404
+            }
+        }
+
+        RespirationSkillHarm:FireServer(unpack(args))
+    end
+end
+
+
+-- ✅ Now just connect them to the Fluent UI toggle
+local Toggle = Tabs.Farm:AddToggle("M8", {Title = "Super Kill Aura", Default = false})
+
+Toggle:OnChanged(function()
+    if Options.M8.Value then
+        task.spawn(ClickAllEnemies)
+        task.spawn(AutoUseSkill)
+    end
+end)
+
+Options.M8:SetValue(false)
+
+
+local Toggle = Tabs.Farm:AddToggle("T4", {
+    Title = "Auto Collect Drop",
+    Default = false
+})
+
+Toggle:OnChanged(function()
+    task.spawn(function()
+        while Options.T4.Value do
+            task.wait()
+
+            local player = game:GetService("Players").LocalPlayer
+            local character = player.Character or player.CharacterAdded:Wait()
+            local playerHRP = character:WaitForChild("HumanoidRootPart")
+            local goldsFolder = workspace:WaitForChild("Golds")
+
+            for _, gold in ipairs(goldsFolder:GetChildren()) do
+                if gold:IsA("BasePart") and gold.Name == "OutGold" then
+                    gold.CFrame = playerHRP.CFrame * CFrame.new(0, 0, -2)
+                end
+            end
+        end
+    end)
+end)
+
+Options.T4:SetValue(false)
+
+
+local Toggle = Tabs.Egg:AddToggle("T5", {
+    Title = "Auto Hatch",
+    Default = false,
+    Description = "Spin Neareset Egg"
+})
+
+Toggle:OnChanged(function()
+    task.spawn(function()
+        while Options.T5.Value do
+            local function getCurrentEggId()
+                for _, mapFolder in pairs(workspace.Maps:GetChildren()) do
+                    if mapFolder:FindFirstChild("Map") and mapFolder.Map:FindFirstChild("Eggs") then
+                        local eggs = mapFolder.Map.Eggs:GetChildren()
+                        if eggs[2] then
+                            return eggs[2]:GetAttribute("Id")
+                        end
+                    end
+                end
+                return nil
+            end
+
+            local eggId = getCurrentEggId()
+
+            if eggId then
+                local args = {
+                    {
+                        drawCardPlatformId = eggId,
+                        count = 3
+                    }
+                }
+                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("ExtractHero"):InvokeServer(unpack(args))
+            else
+                warn("Egg ID not found!")
+            end
+
+            task.wait(0.01)
+        end
+    end)
+end)
+
+Options.T5:SetValue(false)
+
+
+--- 
+
+local Dropdown = Tabs.Teleport:AddDropdown("BypassTeleport", {
+    Title = "Bypass Teleport",
+    Values = {
+        "Select Location",  -- placeholder
+        "Join Dungeon",
+        "Join Tower",
+        "Join Relic"
+    },
+    Multi = false,
+    Default = 1  -- starts with placeholder selected
+})
+
+Dropdown:OnChanged(function(Value)
+    if Value == "Select Location" then
+        -- do nothing or notify user to select a valid location
+        return
+    end
+
+    local mapIds = {
+        ["Join Dungeon"] = 50016,
+        ["Join Tower"] = 50107,
+        ["Join Relic"] = 50900,
+    }
+
+    local mapId = mapIds[Value]
+    if mapId then
+        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("LocalPlayerTeleport"):FireServer({
+            mapId = mapId
+        })
+    end
+end)
+
+---
+
+local Dropdown = Tabs.Teleport:AddDropdown("ServerOptions", {
+    Title = "Server Hop",
+    Values = {
+        "Select an Option",  -- placeholder to mimic 'starting false'
+        "Server Hop",
+        "Rejoin Server",
+        "Server Hop [ Low Players ]"
+    },
+    Multi = false,
+    Default = 1
+})
+
+Dropdown:OnChanged(function(selection)
+    if selection == "Select an Option" then
+        -- no action on placeholder
+        return
+    end
+
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService = game:GetService("HttpService")
+    local Players = game:GetService("Players")
+    local PlaceId = game.PlaceId
+    local CurrentJobId = game.JobId
+
+    if selection == "Server Hop" then
+        local success, servers = pcall(function()
+            local response = game:HttpGetAsync(
+                "https://games.roblox.com/v1/games/"..PlaceId.."/servers/Public?sortOrder=Asc&limit=100"
+            )
+            return HttpService:JSONDecode(response)
+        end)
+
+        if success and servers and servers.data then
+            for _, server in ipairs(servers.data) do
+                if server.playing < server.maxPlayers and server.id ~= CurrentJobId then
+                    TeleportService:TeleportToPlaceInstance(PlaceId, server.id)
+                    return
+                end
+            end
+        else
+            warn("Failed to retrieve servers")
+        end
+
+    elseif selection == "Rejoin Server" then
+        TeleportService:Teleport(PlaceId, Players.LocalPlayer)
+
+    elseif selection == "Server Hop [ Low Players ]" then
+        local success, servers = pcall(function()
+            local response = game:HttpGetAsync(
+                "https://games.roblox.com/v1/games/"..PlaceId.."/servers/Public?sortOrder=Asc&limit=100"
+            )
+            return HttpService:JSONDecode(response)
+        end)
+
+        if success and servers and servers.data then
+            for _, server in ipairs(servers.data) do
+                if server.playing <= 5 and server.id ~= CurrentJobId then
+                    TeleportService:TeleportToPlaceInstance(PlaceId, server.id)
+                    return
+                end
+            end
+        else
+            warn("Failed to retrieve servers")
+        end
+    end
+end)
+
+
+
+local mounts = {
+    ["Cloud"] = 100001,
+    ["Lightning Cloud"] = 100002,
+    ["Gold Cloud"] = 100003,
+    ["Magic Skateboard"] = 100004,
+    ["Scifi Skateboard"] = 100005,
+    ["Pomni"] = 100006,
+    ["Doge Car"] = 100007,
+    ["Magic Carpet"] = 100008,
+    ["Electronic Fantasy"] = 100009,
+    ["Fire Wheel"] = 100010,
+    ["Water Wheel"] = 100011,
+    ["Christmas Sleigh"] = 100012,
+    ["Banana Car"] = 100013,
+    ["Flying Sword"] = 100014,
+    ["Justice Onslaught"] = 100015,
+    ["Broken Sky"] = 100016,
+    ["Nimbus"] = 100017,
+    ["Rubber Dukiro"] = 100018,
+    ["Batmobile"] = 100019,
+    ["Torrent Steel"] = 100020,
+    ["Super Daddy"] = 100021,
+    ["Flying Saucer"] = 100022,
+    ["Rocket"] = 100023,
+    ["Spaceship"] = 100024,
+    ["Flying Leaves"] = 100025,
+    ["Plane"] = 100026,
+    ["Chariot"] = 100027,
+    ["Dark Elves"] = 100028,
+    ["Manta Rays"] = 100029,
+    ["Deep Sea Monstrosity"] = 100030,
+    ["War Machine"] = 100031,
+    ["Hamburger"] = 100032,
+    ["Dragon"] = 100033,
+    ["Sharkplanes"] = 100034,
+    ["Swimming Rings"] = 100035,
+    ["Crocs Spotters"] = 100036,
+    ["Flying Fish"] = 100037,
+    ["Tank"] = 100038,
+    ["Robo Cop"] = 100039,
+    ["Speed Snail"] = 100040,
+    ["Tai chi panda"] = 100041,
+    ["StarFleet"] = 100042,
+    ["JinDouYun"] = 100043,
+    ["Fruitcarts"] = 100044,
+    ["Frigate"] = 100045,
+    ["Pumpkincarts"] = 100046,
+    ["BattleTrain"] = 100047,
+    ["DreamyEra"] = 100048,
+    ["AE86"] = 100049,
+    ["HoverCraft"] = 100050,
+    ["BlueFlash"] = 100051,
+    ["Dreamy Light Wheels"] = 100052,
+    ["Christmas Present"] = 100053,
+    ["AirBoat Missile"] = 100054,
+    ["Aircar"] = 100055,
+    ["Ravager"] = 100056,
+    ["Dragon"] = 100057,
+    ["EggCart"] = 100058,
+    ["Unicorn"] = 100059,
+    ["Capybara"] = 100060
+}
+
+local mountList1 = {
+    "Cloud", "Lightning Cloud", "Gold Cloud", "Magic Skateboard", "Scifi Skateboard",
+    "Pomni", "Doge Car", "Magic Carpet", "Electronic Fantasy", "Fire Wheel",
+    "Water Wheel", "Christmas Sleigh", "Banana Car", "Flying Sword", "Justice Onslaught",
+    "Broken Sky", "Nimbus", "Rubber Dukiro", "Batmobile", "Torrent Steel",
+    "Super Daddy", "Flying Saucer", "Rocket", "Spaceship", "Flying Leaves",
+    "Plane", "Chariot"
+}
+
+local mountList2 = {
+    "Dark Elves", "Manta Rays", "Deep Sea Monstrosity", "War Machine", "Hamburger",
+    "Dragon", "Sharkplanes", "Swimming Rings", "Crocs Spotters", "Flying Fish",
+    "Tank", "Robo Cop", "Speed Snail", "Tai chi panda", "StarFleet",
+    "JinDouYun", "Fruitcarts", "Frigate", "Pumpkincarts", "BattleTrain",
+    "DreamyEra", "AE86", "HoverCraft", "BlueFlash", "Dreamy Light Wheels",
+    "Christmas Present", "AirBoat Missile", "Aircar", "Ravager", "Dragon", "EggCart", "Unicorn", "Capybara"
+}
+
+local Dropdown1 = Tabs.Mounts:AddDropdown("MountList2", {
+    Title = "Mount List 1",
+    Values = mountList2,
+    Multi = false,
+    Default = 0  -- no default selected
+})
+
+Dropdown1:OnChanged(function(selection)
+    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("EquipMount"):FireServer(mounts[selection])
+end)
+
+local Dropdown2 = Tabs.Mounts:AddDropdown("MountList1", {
+    Title = "Mount List 2",
+    Values = mountList1,
+    Multi = false,
+    Default = 21  -- no default selected
+})
+
+Dropdown2:OnChanged(function(selection)
+    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("EquipMount"):FireServer(mounts[selection])
+end)
+
+Tabs.Machine:AddParagraph({
+    Title = "🍑 AUTO MACHINE INSTRUCTION ✨",
+    Content = [[
+
+INSTRUCTION TO USE AUTO MACHINE FOR "MASK,AWEKENING,ORNAMENT AND BREATH AMPLIFICATION"
+
+1st - Select a Machine
+2nd - Select only 1 Rarity "Common, Rare, Epic, Legendary or Mythic"
+3rd - Toggle Auto Draw Machine
+
+    ]]
+})
+
+--
+
+local Dropdown = Tabs.Teleport:AddDropdown("AutoRaid", {
+    Title = "Auto Raid",
+    Description = "Auto raid + Kill Aura",
+    Values = {
+        "Select Mode", -- placeholder
+        "Souls",
+        "Book 1",
+        "Book 2",
+        "Book 3"
+    },
+    Multi = false,
+    Default = 1 -- starts with placeholder selected
+})
+
+Dropdown:OnChanged(function(Value)
+    if Value == "Select Mode" then
+        -- do nothing or notify user to select a valid mode
+        return
+    end
+
+    local raidScripts = {
+        ["Souls"] = "https://raw.githubusercontent.com/ckashckash/ckashingckashing2/refs/heads/main/bsAR0",
+        ["Book 1"] = "https://raw.githubusercontent.com/ckashckash/ckashingckashing2/refs/heads/main/bsAR1",
+        ["Book 2"] = "https://raw.githubusercontent.com/ckashckash/ckashingckashing2/refs/heads/main/bsAR2",
+        ["Book 3"] = "https://raw.githubusercontent.com/ckashckash/ckashingckashing2/refs/heads/main/bsAR3"
+    }
+
+    local url = raidScripts[Value]
+    if url then
+        loadstring(game:HttpGet(url))()
+    end
+end)
+
+
+-- Player reference
+local player = {
+    self = game:GetService("Players").LocalPlayer
+}
+
+-- Utils for notification
+local utils = {
+    notify = function(msg, duration)
+        print("[Notify]", msg)
+    end,
+    ColorFonts = function(text, color)
+        return text .. " (" .. color .. ")"
+    end,
+    runtime = function(callback)
+        task.spawn(function()
+            while true do
+                task.wait(1)
+                callback()
+            end
+        end)
+    end
+}
+
+-- Main state table
+local var = {
+    machine = {
+        s = "Select Machine",
+        toggle = false,
+        speed = 0.8,
+        table = { "Mask", "Breath", "Ornament", "Breath Amplification" },
+        delete = {
+            common = false,
+            rare = false,
+            epic = false,
+            legendary = false,
+            mythic = false
+        }
+    }
+}
+
+-- Machine selection dropdown
+local MachineDropdown = Tabs.Machine:AddDropdown("MachineSelect", {
+    Title = "Select Machine",
+    Values = {
+        "Select Machine",
+        "Mask",
+        "Awakening",
+        "Ornament",
+        "Breath Amplification"
+    },
+    Multi = false,
+    Default = 1
+})
+
+MachineDropdown:OnChanged(function(value)
+    if value == "Select Machine" then return end
+    var.machine.s = value
+end)
+
+Tabs.Machine:AddParagraph({
+    Title = "",
+    Content = [[🎀🎀🎀]]
+})
+
+-- Rarity toggles
+for _, rarity in ipairs({ "common", "rare", "epic", "legendary", "mythic" }) do
+    local rarityToggle = Tabs.Machine:AddToggle("Keep_" .. rarity, {
+        Title = "Keep " .. rarity:sub(1,1):upper() .. rarity:sub(2),
+        Default = false
+    })
+
+    rarityToggle:OnChanged(function(value)
+        var.machine.delete[rarity] = value
+    end)
+end
+
+Tabs.Machine:AddParagraph({
+    Title = "",
+    Content = [[🎀🎀🎀]]
+})
+
+
+-- Auto Draw Machine toggle
+local AutoDrawToggle = Tabs.Machine:AddToggle("AutoDrawMachine", {
+    Title = "Auto Draw Machine",
+    Default = false
+})
+
+AutoDrawToggle:OnChanged(function(value)
+    var.machine.toggle = value
+
+    task.spawn(function()
+        while var.machine.toggle do
+            local machineIdMap = {
+                Mask = 400001,
+                Awakening = 400002,
+                Ornament = 400003,
+                ["Breath Amplification"] = 400004
+            }
+
+            local id = machineIdMap[var.machine.s]
+            if id then
+                game:GetService("ReplicatedStorage").Remotes.RerollOrnament:InvokeServer(id)
+            else
+                utils.notify(utils.ColorFonts("INVALID MACHINE NAME", "Red"), 10)
+            end
+
+            task.wait(var.machine.speed)
+        end
+    end)
+end)
+
+-- Runtime checker: detects obtained rarity and stops if matched
+utils.runtime(function()
+    if not var.machine.toggle then return end
+
+    local char = player.self.Character
+    if not char then return end
+
+    local config = {
+        Mask = "Mask",
+        Awakening = "Stripe",
+        Ornament = "Back",
+        ["Breath Amplification"] = "Trail"
+    }
+
+    local base = config[var.machine.s]
+    if not base then return end
+
+    local rarityOrder = {
+        {name = "common", suffix = "1", color = "G2"},
+        {name = "rare", suffix = "2", color = "Sky Blue"},
+        {name = "epic", suffix = "3", color = "Purple"},
+        {name = "legendary", suffix = "4", color = "Yellow"},
+        {name = "mythic", suffix = "5", color = "Red"}
+    }
+
+    for _, rarity in ipairs(rarityOrder) do
+        if var.machine.delete[rarity.name] and char:FindFirstChild(base .. rarity.suffix) then
+            var.machine.toggle = false
+            local item = string.lower(var.machine.s)
+            utils.notify("Congratulations! You got a " ..
+                utils.ColorFonts(rarity.name:gsub("^%l", string.upper), rarity.color) ..
+                " " .. item .. "!", 30)
+            break
+        end
+    end
+end)
+
+
+
+local vu = game:GetService("VirtualUser")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local antiAfkConnection
+
+-- Create Fluent UI Toggle
+local Toggle = Tabs.Main:AddToggle("AntiAFK", {
+    Title = "Enable Anti-AFK",
+    Default = true,
+    Description = "Prevent being kicked for inactivity."
+})
+
+-- Function to start Anti-AFK
+local function startAntiAfk()
+    if antiAfkConnection then
+        antiAfkConnection:Disconnect()
+    end
+
+    antiAfkConnection = LocalPlayer.Idled:Connect(function()
+        vu:CaptureController()
+        vu:ClickButton2(Vector2.new())
+    end)
+end
+
+-- Toggle logic
+Toggle:OnChanged(function(value)
+    if value then
+        startAntiAfk()
+    elseif antiAfkConnection then
+        antiAfkConnection:Disconnect()
+    end
+end)
+
+-- Start Anti-AFK on script load if toggle is enabled
+if Toggle.Value then
+    startAntiAfk()
+end
+
+local Toggle = Tabs.Player:AddToggle("M3", {Title = "Auto Fuse Weapon", Default = false})
+
+Toggle:OnChanged(function()
+
+while Options.M3.Value do
+    
+    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("FuseWeapon"):FireServer()
+    wait(0.1) -- Optional delay to avoid server issues; adjust or remove as needed
+    end
+
+end)
+
+Options.M3:SetValue(false)
+
+--
+
+local Toggle = Tabs.Player:AddToggle("T1", {
+    Title = "Auto Delete Weapon (Unlock)",
+    Default = false
+})
+
+Toggle:OnChanged(function()
+    task.spawn(function()
+        while Options.T1.Value do
+            local scrollingFrame = game:GetService("Players").LocalPlayer.PlayerGui.EquipmentPanel.Frame.EquipmentPackage.Right.Mid.ScrollingFrame
+            local deletableIds = {}
+
+            for _, v in pairs(scrollingFrame:GetChildren()) do
+                if v:FindFirstChild("LockImage")
+                    and v.LockImage:FindFirstChild("Frame")
+                    and v.LockImage.Frame:FindFirstChild("ImageLabel")
+                    and v.LockImage.Frame.ImageLabel.Visible == false then
+                        table.insert(deletableIds, v.Name)
+                end
+            end
+
+            if #deletableIds > 0 then
+                local args = {
+                    {
+                        unpack(deletableIds)
+                    }
+                }
+                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("DeleteWeapons"):FireServer(unpack(args))
+            end
+
+            task.wait(1)
+        end
+    end)
+end)
+
+Options.T1:SetValue(false)
+
+Tabs.Teleport:AddButton({
+    Title = "Auto Find Mythic Boss",
+    Description = "Must be in World 2",
+    Callback = function()
+			loadstring(game:HttpGet("https://raw.githubusercontent.com/ckashckash/ckashingckashing2/refs/heads/main/bsboss"))()
+    end
+})
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Toggle setup
+local Toggle = Tabs.Teleport:AddToggle("AutoFarmTower1", {
+    Title = "Auto Dungeon",
+    Default = false
+})
+
+local Options = {}
+Options.AutoFarmTower1 = Toggle
+
+-- Function to watch countdown
+local function watchCountdown()
+    local success, countdownPath = pcall(function()
+        return workspace.Maps.Map3.Map.TeleportPoints.Tower.TowerLock.Tetle.Title.BillboardGui.ImageLabel.CountDown
+    end)
+
+    if success and countdownPath and countdownPath:IsA("TextLabel") then
+
+        countdownPath:GetPropertyChangedSignal("Text"):Connect(function()
+            if Options.AutoFarmTower1.Value and countdownPath.Text == "00:00:00" then
+                task.wait(5) -- delay before teleport
+                ReplicatedStorage.Remotes.LocalPlayerTeleport:FireServer({mapId = 50016})
+            end
+        end)
+    end
+end
+
+-- Toggle behavior
+Toggle:OnChanged(function()
+    if Options.AutoFarmTower1.Value then
+        coroutine.wrap(function()
+            while Options.AutoFarmTower1.Value do
+                watchCountdown()
+                task.wait(2) -- keep re-checking if path exists
+            end
+        end)()
+    end
+end)
+
+-- Ensure toggle is off initially
+Options.AutoFarmTower1:SetValue(false)
+
+
+local Toggle = Tabs.Teleport:AddToggle("AutoFarmTower", {
+    Title = "Auto Tower",
+    Default = false
+})
+
+local Options = {}
+Options.AutoFarmTower = Toggle
+
+Toggle:OnChanged(function()
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+    coroutine.wrap(function()
+        while Options.AutoFarmTower.Value do
+            -- Try to get TowerUnlock safely
+            local towerUnlock = nil
+            local success, err = pcall(function()
+                towerUnlock = workspace.Maps.Map1.Map.TeleportPoints.TowerDefense:WaitForChild("TowerDefenseUnlock", 0.1)
+            end)
+
+            if towerUnlock then
+                ReplicatedStorage.Remotes.LocalPlayerTeleport:FireServer({mapId = 50107})
+                task.wait(2)
+            else
+                task.wait(0.5) -- wait a bit before trying again, to avoid freezing
+            end
+        end
+    end)()
+end)
+
+Options.AutoFarmTower:SetValue(false)
+
+
+local Toggle = Tabs.Egg:AddToggle("AutoRerollOrnament1", {
+    Title = "Auto Spin Talisman",
+    Default = false
+})
+
+local Options = {}
+Options.AutoRerollOrnament1 = Toggle
+
+Toggle:OnChanged(function()
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local RerollRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RerollOrnament")
+
+    coroutine.wrap(function()
+        while Options.AutoRerollOrnament1.Value do
+            local args = {
+                400005
+            }
+            RerollRemote:InvokeServer(unpack(args))
+            task.wait(0.001) -- Adjust delay if needed
+        end
+    end)()
+end)
+
+Options.AutoRerollOrnament1:SetValue(false)
+
+local Toggle = Tabs.Egg:AddToggle("AutoRerollOrnament", {
+    Title = "Auto Spin Headrress (Silk)",
+    Default = false
+})
+
+local Options = {}
+Options.AutoRerollOrnament = Toggle
+
+Toggle:OnChanged(function()
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local RerollRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RerollOrnament")
+
+    coroutine.wrap(function()
+        while Options.AutoRerollOrnament.Value do
+            local args = {
+                400006
+            }
+            RerollRemote:InvokeServer(unpack(args))
+            task.wait(0.001) -- Adjust delay if needed
+        end
+    end)()
+end)
+
+Options.AutoRerollOrnament:SetValue(false)
+
+
+Tabs.Farm:AddButton({
+    Title = "Destroy PopUp Notification",
+    Description = nil,
+    Callback = function()
+        local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+        local tipsPanel = playerGui:FindFirstChild("TipsPanel")
+
+        if tipsPanel then
+            local rewardsFrame = tipsPanel:FindFirstChild("RewardsFrame")
+            if rewardsFrame then
+                rewardsFrame:Destroy()
+                print("Deleted RewardsFrame.")
+            else
+                print("RewardsFrame not found.")
+            end
+
+            local floatingTextFrame = tipsPanel:FindFirstChild("FloatIngTextFrame")
+            if floatingTextFrame then
+                floatingTextFrame:Destroy()
+                print("Deleted FloatIngTextFrame.")
+            else
+                print("FloatIngTextFrame not found.")
+            end
+        else
+            print("TipsPanel not found.")
+        end
+    end
+})
+
+
+
+-- ===========================
+-- MAGIC
+-- ===========================
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HeroSkillHarm = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("HeroSkillHarm")
+
+local heroGuids = {} -- store multiple heroes
+local spamEnabled = false
+local spamEnabled2 = false
+
+-- Capture ALL heroGuids from FireServer
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    if not checkcaller() and self == HeroSkillHarm and method == "FireServer" then
+        local args = {...}
+        if typeof(args[1]) == "table" and args[1].heroGuid then
+            local guid = args[1].heroGuid
+            if not table.find(heroGuids, guid) then
+                table.insert(heroGuids, guid)
+                print("Captured heroGuid:", guid)
+            end
+        end
+    end
+    return oldNamecall(self, ...)
+end)
+
+-- Only allow for specific player
+local player = game.Players.LocalPlayer
+local allowedUsers = {
+    ["Cuteeee1587"] = true,
+    ["1587zswq"] = true,
+
+    
+}
+
+if allowedUsers[player.Name] then
+
+    -- Toggle for skill 200563
+    Tabs.Main:AddToggle("SkillSpamToggle", {
+        Title = "ADD DAMAGE",
+        Default = false,
+        Callback = function(state)
+            spamEnabled = state
+        end
+    })
+
+    -- Toggle for skill 200314
+    Tabs.Main:AddToggle("SkillSpamToggle2", {
+        Title = "RAPID SKILL",
+        Default = false,
+        Callback = function(state)
+            spamEnabled2 = state
+        end
+    })
+
+    -- Spam loop for ALL captured heroes
+    task.spawn(function()
+        while true do
+            if #heroGuids > 0 then
+                for _, guid in ipairs(heroGuids) do
+                    if spamEnabled then
+                        HeroSkillHarm:FireServer({
+                            harmIndex = 1,
+                            isSkill = true,
+                            heroGuid = guid,
+                            skillId = 200409
+                        })
+                    end
+                    if spamEnabled2 then
+                        HeroSkillHarm:FireServer({
+                            harmIndex = 1,
+                            isSkill = true,
+                            heroGuid = guid,
+                            skillId = 200314
+                        })
+                    end
+                end
+            end
+            task.wait(0.0001)
+        end
+    end)
+end
+
+
+-- ===========================
+-- Auto Hero Quirk
+-- ===========================
+local heroGuid = nil -- Auto-detect later
+local costItemId = nil -- Book
+local slotIndex = nil -- Slot
+local rollDelay = 0.1 -- Default spin speed (can be adjusted via slider)
+
+local quirksList = {
+    ["Crit DMG 6"] = 99053,
+    ["Skill DMG 6"] = 99052,
+    ["Item Drop 6"] = 99051,
+    ["DMG 6"] = 99050,
+    ["Gold Drop 6"] = 99049,
+    ["Crit DMG 5"] = 99046,
+    ["Crit Chance 5"] = 99041,
+    ["Equip Drop 5"] = 99036,
+    ["Skill DMG 5"] = 99031,
+    ["Item Drop 5"] = 99026,
+    ["Exp Add 5"] = 99021,
+    ["Move Speed 5"] = 99016,
+    ["DMG 5"] = 99011,
+    ["Gold Drop 5"] = 99005
+}
+
+local validBooks = {
+    [1] = {
+        {Name = "Quirk 1", Id = 10030},
+        {Name = "Scroll", Id = 10033}
+    },
+    [2] = {
+        {Name = "Quirk 2", Id = 10031},
+        {Name = "Scroll", Id = 10033}
+    },
+    [3] = {
+        {Name = "Quirk 3", Id = 10032},
+        {Name = "Scroll", Id = 10033}
+    }
+}
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RandomGainQuirkProperty = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RandomGainQuirkProperty")
+
+-- Get Equipped Hero GUID
+local function getEquippedHeroGuid()
+    local EquipHero = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("EquipHero")
+
+    local oldNamecall
+    oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+        local args = {...}
+        if getnamecallmethod() == "FireServer" and self == EquipHero then
+            if args[1] and type(args[1]) == "string" then
+                heroGuid = args[1]
+                -- removed print to prevent lag
+            end
+        end
+        return oldNamecall(self, ...)
+    end)
+end
+getEquippedHeroGuid()
+
+-- Variables
+local spinning = false
+local desiredQuirks = {}
+
+-- Helpers
+local function tableHasValue(tbl, val)
+    for _, v in ipairs(tbl) do
+        if tonumber(v) == tonumber(val) then
+            return true
+        end
+    end
+    return false
+end
+
+local function getBookCount(bookId)
+    local itemFrame = LocalPlayer.PlayerGui.ItemsPanel.Frame.BgImage.Mid.ScrollingFrame:FindFirstChild(tostring(bookId))
+    if itemFrame and itemFrame:FindFirstChild("NumText") then
+        return tonumber(itemFrame.NumText.Text) or 0
+    end
+    return 0
+end
+
+-- Main Spin Loop
+local function spinLoop()
+    while spinning do
+        if not heroGuid then
+            Fluent:Notify({
+                Title = "Error",
+                Content = "No equipped hero detected! Please equip a hero first.",
+                Duration = 3
+            })
+            spinning = false
+            break
+        end
+
+        if not costItemId or getBookCount(costItemId) <= 0 then
+            Fluent:Notify({
+                Title = "Out of Stock",
+                Content = "You have no more of the selected book! Stopping...",
+                Duration = 4
+            })
+            spinning = false
+            break
+        end
+
+        local result = RandomGainQuirkProperty:InvokeServer({
+            heroGuid = heroGuid,
+            costItemId = costItemId,
+            slotIndex = slotIndex
+        })
+
+        if result and result.quirkId then
+            -- removed spammy notifications & prints
+            if tableHasValue(desiredQuirks, result.quirkId) then
+                Fluent:Notify({
+                    Title = "Success",
+                    Content = "🎯 Found desired quirk! Stopping...",
+                    Duration = 3
+                })
+                spinning = false
+                break
+            end
+        end
+
+        task.wait(rollDelay)
+    end
+end
+
+-- ===========================
+-- QUIRK SPINNER TAB (restricted to username)
+-- ===========================
+local allowedUsers = {"Cuteeee1587", "Cuteeeee1587", "cxz456zxc654"}
+
+local function isAllowedUser(name)
+    for _, u in ipairs(allowedUsers) do
+        if u == name then
+            return true
+        end
+    end
+    return false
+end
+
+if isAllowedUser(LocalPlayer.Name) then
+
+    local Tab = Window:AddTab({ Title = "Quirk Spinner", Icon = "refresh-ccw" })
+
+    -- SLOT DROPDOWN
+    local slotDropdown = Tab:AddDropdown("SlotDropdown", {
+        Title = "Select Slot",
+        Values = {"Slot 1", "Slot 2", "Slot 3"},
+        Multi = false,
+        Default = "Slot 1"
+    })
+
+    -- BOOK DROPDOWN
+    local bookDropdown = Tab:AddDropdown("BookDropdown", {
+        Title = "Select Book",
+        Values = {},
+        Multi = false
+    })
+
+    -- Update Book List
+    local function updateBooks()
+        if slotIndex and validBooks[slotIndex] then
+            local names = {}
+            for _, b in ipairs(validBooks[slotIndex]) do
+                table.insert(names, b.Name)
+            end
+            bookDropdown:SetValues(names)
+        end
+    end
+
+    slotDropdown:OnChanged(function(value)
+        if value == "Slot 1" then slotIndex = 1
+        elseif value == "Slot 2" then slotIndex = 2
+        elseif value == "Slot 3" then slotIndex = 3 end
+        costItemId = nil
+        updateBooks()
+    end)
+
+    slotIndex = 1
+    updateBooks()
+
+    bookDropdown:OnChanged(function(value)
+        if slotIndex and validBooks[slotIndex] then
+            for _, b in ipairs(validBooks[slotIndex]) do
+                if b.Name == value then
+                    costItemId = b.Id
+                    break
+                end
+            end
+        end
+    end)
+
+    -- QUIRK CHECKBOXES
+    for label, id in pairs(quirksList) do
+        local check = Tab:AddToggle(label, {Title = label, Default = false})
+        check:OnChanged(function(state)
+            if state then
+                table.insert(desiredQuirks, id)
+            else
+                for i, v in ipairs(desiredQuirks) do
+                    if v == id then table.remove(desiredQuirks, i) break end
+                end
+            end
+        end)
+    end
+
+    -- SPEED SLIDER
+    Tab:AddSlider("SpinSpeed", {
+        Title = "Spin Delay (seconds)",
+        Description = "Lower = faster rolling",
+        Default = 0.1,
+        Min = 0.05,
+        Max = 1,
+        Rounding = 2,
+        Callback = function(value)
+            rollDelay = value
+        end
+    })
+
+    -- START BUTTON
+    Tab:AddButton({
+        Title = "Start Rolling",
+        Description = "Begin auto quirk rerolling",
+        Callback = function()
+            if spinning then return end
+            spinning = true
+            task.spawn(spinLoop)
+            Fluent:Notify({Title = "Started", Content = "Auto roll started!", Duration = 3})
+        end
+    })
+
+    -- STOP BUTTON
+    Tab:AddButton({
+        Title = "Stop Rolling",
+        Description = "Stop the reroll loop",
+        Callback = function()
+            spinning = false
+            Fluent:Notify({Title = "Stopped", Content = "Auto roll stopped!", Duration = 3})
+        end
+    })
+end
+
+-- ===========================
+-- Auto weapon Quirk (Slot 1 & Slot 2)
+-- ===========================
+
+-- --- Quirk lists ---
+local weaponQuirksList1 = {
+    ["Celestial Onslaught"] = 101013,
+    ["Lucky Scavenger"] = 101014,
+    ["Titan's Wrath"] = 101015,
+    ["Omnipotent Benefactor"] = 101016,
+    ["Archangel's Judgment"] = 101017,
+    ["Avatar of Destruction"] = 101018
+}
+
+local weaponQuirksList2 = {
+    ["Celestial Onslaught"] = 101031,
+    ["Lucky Scavenger"] = 101032,
+    ["Titan's Wrath"] = 101033,
+    ["Omnipotent Benefactor"] = 101034,
+    ["Archangel's Judgment"] = 101035,
+    ["Avatar of Destruction"] = 101036
+}
+
+-- Reverse lookup for ID → Name (per slot)
+local weaponQuirkNames1 = {}
+for name, id in pairs(weaponQuirksList1) do weaponQuirkNames1[id] = name end
+local weaponQuirkNames2 = {}
+for name, id in pairs(weaponQuirksList2) do weaponQuirkNames2[id] = name end
+
+-- Services / remotes
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local DrawWeaponQuirk = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("DrawWeaponQuirk")
+local EquipWeapon = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("EquipWeapon")
+local RandomHeroEquipGrade = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RandomHeroEquipGrade")
+local EquipHeroEquip = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("EquipHeroEquip")
+
+-- Weapon / Equip GUID tracking
+local weaponGuid              = nil            -- last equipped guid (fallback)
+local weaponGuidBySlot        = {}             -- map slotIndex -> guid
+local equipGuid               = nil            -- last equipped hero weapon guid
+
+-- ===========================
+-- HOOK TO CAPTURE EQUIP GUIDS
+-- ===========================
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
+
+    -- Weapon equip hook (Slot 1 & 2)
+    if method == "FireServer" and self == EquipWeapon then
+        if args[1] and type(args[1]) == "string" then
+            weaponGuid = args[1]
+            if args[2] and type(args[2]) == "number" then
+                weaponGuidBySlot[args[2]] = args[1]
+            end
+        end
+    end
+
+    -- Hero equip hook
+    if method == "FireServer" and self == EquipHeroEquip then
+        if args[1] and type(args[1]) == "table" and args[1].guid then
+            equipGuid = args[1].guid
+        end
+    end
+
+    return oldNamecall(self, ...)
+end)
+
+-- ===========================
+-- UTILITY FUNCTIONS
+-- ===========================
+local function tableHasValue(tbl, val)
+    for _, v in ipairs(tbl) do
+        if tonumber(v) == tonumber(val) then
+            return true
+        end
+    end
+    return false
+end
+
+-- ===========================
+-- SPINNER STATE (SLOT 1)
+-- ===========================
+local slotIndex1 = 1
+local spinning1 = false
+local desiredWeaponQuirks1 = {}
+local spinDelay1 = 0.1
+
+local function spinLoop1()
+    while spinning1 do
+        local guid = weaponGuidBySlot[slotIndex1] or weaponGuid
+        if not guid then
+            Fluent:Notify({Title = "Error (Slot 1)", Content = "No weapon equipped in slot 1! Equip the weapon in slot 1 and try again.", Duration = 3})
+            spinning1 = false
+            break
+        end
+
+        local args = {{ slotIndex = slotIndex1, guid = guid }}
+        local result = DrawWeaponQuirk:InvokeServer(unpack(args))
+
+        if result and result.quirkId then
+            local quirkName = weaponQuirkNames1[result.quirkId]
+            if quirkName then
+                Fluent:Notify({Title = "Weapon Quirk Roll (Slot 1)", Content = "Got quirk: " .. quirkName .. " (ID: " .. tostring(result.quirkId) .. ")", Duration = 2})
+                if tableHasValue(desiredWeaponQuirks1, result.quirkId) then
+                    Fluent:Notify({Title = "Success (Slot 1)", Content = "🎯 Found desired weapon quirk: " .. quirkName, Duration = 3})
+                    spinning1 = false
+                    break
+                end
+            end
+        end
+
+        task.wait(spinDelay1)
+    end
+end
+
+-- ===========================
+-- SPINNER STATE (SLOT 2)
+-- ===========================
+local slotIndex2 = 2
+local spinning2 = false
+local desiredWeaponQuirks2 = {}
+local spinDelay2 = 0.1
+
+local function spinLoop2()
+    while spinning2 do
+        local guid = weaponGuidBySlot[slotIndex2] or weaponGuid
+        if not guid then
+            Fluent:Notify({Title = "Error (Slot 2)", Content = "No weapon equipped in slot 2! Equip the weapon in slot 2 and try again.", Duration = 3})
+            spinning2 = false
+            break
+        end
+
+        local args = {{ slotIndex = slotIndex2, guid = guid }}
+        local result = DrawWeaponQuirk:InvokeServer(unpack(args))
+
+        if result and result.quirkId then
+            local quirkName = weaponQuirkNames2[result.quirkId]
+            if quirkName then
+                Fluent:Notify({Title = "Weapon Quirk Roll (Slot 2)", Content = "Got quirk: " .. quirkName .. " (ID: " .. tostring(result.quirkId) .. ")", Duration = 2})
+                if tableHasValue(desiredWeaponQuirks2, result.quirkId) then
+                    Fluent:Notify({Title = "Success (Slot 2)", Content = "🎯 Found desired weapon quirk: " .. quirkName, Duration = 3})
+                    spinning2 = false
+                    break
+                end
+            end
+        end
+
+        task.wait(spinDelay2)
+    end
+end
+
+-- ===========================
+-- SPINNER STATE (EquipWeapon / Hero Equip)
+-- ===========================
+local spinning3 = false
+local desiredWeaponQuirks = {}
+local spinDelay = 0.1
+local drawId = 980001
+
+local weaponQuirksList = {
+    [990006] = "S",
+    [990007] = "SS",
+    [990008] = "G",
+    [990009] = "N",
+    [990010] = "M"
+}
+
+local EquipQuirkNames = {}
+for id, name in pairs(weaponQuirksList) do EquipQuirkNames[id] = name end
+
+local function spinLoop3()
+    while spinning3 do
+        if not equipGuid then
+            Fluent:Notify({Title = "Error", Content = "No hero/weapon equipped! Please equip first.", Duration = 3})
+            spinning3 = false
+            break
+        end
+
+        local args = {{ drawId = drawId, guid = equipGuid }}
+        local result = RandomHeroEquipGrade:InvokeServer(unpack(args))
+
+        if result and result.data and result.data.grade then
+            local quirkId = result.data.grade
+            local quirkName = EquipQuirkNames[quirkId]
+
+            if quirkName then
+                Fluent:Notify({Title = "Roll Result", Content = "Got grade: " .. quirkName .. " (ID: " .. tostring(quirkId) .. ")", Duration = 2})
+                if tableHasValue(desiredWeaponQuirks, quirkId) then
+                    Fluent:Notify({Title = "Success", Content = "🎯 Found desired grade: " .. quirkName, Duration = 3})
+                    spinning3 = false
+                    break
+                end
+            end
+        end
+
+        task.wait(spinDelay)
+    end
+end
+
+-- ===========================
+-- FLUENT UI SETUP
+-- ===========================
+local allowedUsers = {"Cuteeee1587", "Hattori_hanz0o0", "Supremorap"}
+local function isAllowedUser(name)
+    for _, u in ipairs(allowedUsers) do
+        if u == name then return true end
+    end
+    return false
+end
+
+if isAllowedUser(LocalPlayer.Name) then
+    -- Slot 1 Tab
+    local Tab1 = Window:AddTab({ Title = "Weapon Quirk Spinner 1", Icon = "swords" })
+    for label, id in pairs(weaponQuirksList1) do
+        local check = Tab1:AddToggle(label, {Title = label, Default = false})
+        check:OnChanged(function(state)
+            if state then table.insert(desiredWeaponQuirks1, id)
+            else for i, v in ipairs(desiredWeaponQuirks1) do if v == id then table.remove(desiredWeaponQuirks1, i) break end end end
+        end)
+    end
+    Tab1:AddSlider("SpinSpeed1", {Title="Spin Speed (Slot 1)", Description="Delay between rerolls", Default=spinDelay1, Min=0.01, Max=1, Rounding=2, Callback=function(v) spinDelay1=v end})
+    Tab1:AddButton({Title="Start Rolling (Slot 1)", Description="Begin rolling", Callback=function() if spinning1 then return end; spinning1=true; task.spawn(spinLoop1); Fluent:Notify({Title="Started (Slot 1)", Content="Weapon auto roll started for slot 1!", Duration=3}) end})
+    Tab1:AddButton({Title="Stop Rolling (Slot 1)", Description="Stop rolling", Callback=function() spinning1=false; Fluent:Notify({Title="Stopped (Slot 1)", Content="Weapon auto roll stopped for slot 1!", Duration=3}) end})
+
+    -- Slot 2 Tab
+    local Tab2 = Window:AddTab({ Title = "Weapon Quirk Spinner 2", Icon = "swords" })
+    for label, id in pairs(weaponQuirksList2) do
+        local check = Tab2:AddToggle(label, {Title = label, Default = false})
+        check:OnChanged(function(state)
+            if state then table.insert(desiredWeaponQuirks2, id)
+            else for i, v in ipairs(desiredWeaponQuirks2) do if v == id then table.remove(desiredWeaponQuirks2, i) break end end end
+        end)
+    end
+    Tab2:AddSlider("SpinSpeed2", {Title="Spin Speed (Slot 2)", Description="Delay between rerolls", Default=spinDelay2, Min=0.01, Max=1, Rounding=2, Callback=function(v) spinDelay2=v end})
+    Tab2:AddButton({Title="Start Rolling (Slot 2)", Description="Begin rolling", Callback=function() if spinning2 then return end; spinning2=true; task.spawn(spinLoop2); Fluent:Notify({Title="Started (Slot 2)", Content="Weapon auto roll started for slot 2!", Duration=3}) end})
+    Tab2:AddButton({Title="Stop Rolling (Slot 2)", Description="Stop rolling", Callback=function() spinning2=false; Fluent:Notify({Title="Stopped (Slot 2)", Content="Weapon auto roll stopped for slot 2!", Duration=3}) end})
+
+    -- EquipWeapon Tab
+    local Tab3 = Window:AddTab({ Title = "Equip Weapon Spin", Icon = "swords" })
+    for id, grade in pairs(weaponQuirksList) do
+        local check = Tab3:AddToggle(grade, {Title = grade, Default = false})
+        check:OnChanged(function(state)
+            if state then table.insert(desiredWeaponQuirks, id)
+            else for i, v in ipairs(desiredWeaponQuirks) do if v == id then table.remove(desiredWeaponQuirks, i) break end end end
+        end)
+    end
+    Tab3:AddSlider("SpinSpeed", {Title="Spin Speed", Description="Delay between rerolls", Default=spinDelay, Min=0.01, Max=1, Rounding=2, Callback=function(v) spinDelay=v end})
+    Tab3:AddButton({Title="Start Rolling", Description="Begin rolling", Callback=function() if spinning3 then return end; spinning3=true; task.spawn(spinLoop3); Fluent:Notify({Title="Started", Content="EquipWeapon auto roll started!", Duration=3}) end})
+    Tab3:AddButton({Title="Stop Rolling", Description="Stop rolling", Callback=function() spinning3=false; Fluent:Notify({Title="Stopped", Content="EquipWeapon auto roll stopped!", Duration=3}) end})
+end
+
+
+-- ===========================
+-- SAVE MANAGER / SETTINGS
+-- ===========================
+SaveManager:SetLibrary(Fluent)
+InterfaceManager:SetLibrary(Fluent)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({})
+InterfaceManager:SetFolder("FluentScriptHub")
+SaveManager:SetFolder("FluentScriptHub/Bladeslayer")
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs.Settings)
+
+Window:SelectTab(1)
+SaveManager:LoadAutoloadConfig()
+
+-- Toggle UI Button
+local PlayerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+
+local ToggleGui = Instance.new("ScreenGui")
+ToggleGui.Name = "ToggleFluentUI"
+ToggleGui.ResetOnSpawn = false
+ToggleGui.Parent = PlayerGui
+
+local ImageButton = Instance.new("ImageButton")
+ImageButton.Size = UDim2.new(0, 60, 0, 60)
+ImageButton.Position = UDim2.new(0, 10, 0, 10)
+ImageButton.BackgroundTransparency = 1
+ImageButton.Image = "rbxassetid://89716250379057" -- Replace this
+ImageButton.Parent = ToggleGui
+ImageButton.Active = true
+ImageButton.Draggable = true
+
+ImageButton.MouseButton1Click:Connect(function()
+    Window:Minimize()
+end)
