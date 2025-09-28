@@ -1,208 +1,77 @@
-
--- Fluent Blade Slayer
-
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
-local Window = Fluent:CreateWindow({
-    Title = "🍑 CUTE HUBXBBB ",
-    SubTitle = "+1 Blade Slayer 🍑",
-    TabWidth = 160,
-    Size = UDim2.fromOffset(480, 300),
-    Acrylic = true,
+-- Create the window
+local Window = Fluent:Window({
+    Name = "Ornament Reroller",
     Theme = "Dark",
-    MinimizeKey = Enum.KeyCode.K
+    Size = UDim2.new(0, 400, 0, 300)
 })
 
-local Tabs = {
-    Welcome = Window:AddTab({ Title = "Welcome", Icon = "flower" }),
-    Main = Window:AddTab({ Title = "Main", Icon = "home" }),
-    Player = Window:AddTab({ Title = "Player", Icon = "heart" }),
-    Farm = Window:AddTab({ Title = "Farm", Icon = "swords" }),
-    Mounts = Window:AddTab({ Title = "Mounts", Icon = "car" }),
-    Egg = Window:AddTab({ Title = "Egg/Auto Spin", Icon = "egg" }),
-	Machine = Window:AddTab({ Title = "Machine", Icon = "aperture" }),
-    Gem = Window:AddTab({ Title = "Gem", Icon = "gem" }),
-    Teleport = Window:AddTab({ Title = "Teleport", Icon = "map-pin" }),
-	Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
-}
+-- Add a tab
+local Tab = Window:AddTab({ Title = "Auto Roll" })
 
-local Options = Fluent.Options
-
-Tabs.Welcome:AddParagraph({
-    Title = "🍑 Cute Hub ✨",
-    Content = [[
-
-Welcome to 🌸 Cute Hub 🌸
-
-
-💖 Features:
-• 🖱️ Auto Click
-• 🧲 Auto Collect Drop
-• ⚔️ Kill Aura
-• 🏰 Auto Dungeon
-• 💰 Auto Fuse Gem 1-12
-• 🐴 Use All Mounts
-• 🔧 Auto Fuse Weapon
-• 🗑️ Auto Delete Weapon
-• 🔁 Auto Reborn
-• 💤 Anti AFK
-• 🎁 And so much more~!
-
-Just sit back, relax, and let the cuteness carry you to victory~ 🌟
-
-    ]]
-})
-
-Tabs.Welcome:AddButton({
-    Title = "Discord",
-    Description = "Click to copy the Discord invite link.",
-    Callback = function()
-        if setclipboard then
-            setclipboard("https://discord.gg/pazV3CdReC")
-            print("Discord link copied to clipboard!")
-        else
-            warn("Clipboard function not available.")
-        end
-    end
-})
-
-
-
-
-local Input = Tabs.Player:AddInput("MovementSpeedInput", {
-    Title = "Speed",
-    Default = "80",  -- default speed as string
-    Placeholder = "Enter speed (0-500)",
-    Callback = function(value)
-        local speed = tonumber(value)
-        if speed then
-            -- clamp the speed between 0 and 500
-            speed = math.clamp(speed, 0, 500)
-
-            local player = game.Players.LocalPlayer
-            local character = player.Character or player.CharacterAdded:Wait()
-            local humanoid = character:WaitForChild("Humanoid")
-
-            humanoid.WalkSpeed = speed
-        else
-            warn("Invalid speed input: ".. tostring(value))
-        end
-    end
-})
-
-Input:OnChanged(function()
-    print("Input changed:", Input.Value)
-end)
-
-
-
-local Tab5 = Window:AddTab({ Title = "Ornament Spinner", Icon = "swords" })
-
--- 2. Define ornaments
+-- List of ornaments
 local ornaments = {
-    { Id = 410004, Name = "Fire Man Mask" },
+    { Id = 410004, Name = "Fire Man Mask" }, 
     { Id = 410005, Name = "Tengu Mask" },
     { Id = 410050, Name = "Red Horn" },
     { Id = 410051, Name = "Six-Eye Violet" },
     { Id = 410052, Name = "Fox Tears" },
 }
 
+-- Table to track toggled ornaments by name
 local selectedOrnaments = {}
-local spinning = false
 
--- 3. Add a toggle for each ornament
-for _, ornament in pairs(ornaments) do
-    Tab5:AddToggle({
+-- Add a toggle for each ornament using its name
+for _, ornament in ipairs(ornaments) do
+    Tab:AddToggle({
         Title = ornament.Name,
+        Default = false,
         Callback = function(state)
-            if state then
-                table.insert(selectedOrnaments, ornament.Id)
-            else
-                for i, id in pairs(selectedOrnaments) do
-                    if id == ornament.Id then
-                        table.remove(selectedOrnaments, i)
-                        break
-                    end
-                end
-            end
-            print("Selected Ornament IDs:", table.concat(selectedOrnaments, ", "))
+            selectedOrnaments[ornament.Name] = state
         end
     })
 end
 
--- 4. Start Spin button
-Tab5:AddButton({
-    Title = "Start Spin",
-    Callback = function()
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local RerollOrnament = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RerollOrnament")
-
-        spinning = true
-        while spinning do
-            local success, result = pcall(function()
-                return RerollOrnament:InvokeServer(400001)
-            end)
-
-            if success then
-                local rolledId = result.ornamentId
-                print("Rolled Ornament ID:", rolledId)
-                if table.find(selectedOrnaments, rolledId) then
-                    print("Matched Ornament! Stopping spinner.")
-                    spinning = false
+-- Toggle to start/stop auto-rolling
+local rolling = false
+Tab:AddToggle({
+    Title = "Enable Auto Roll",
+    Default = false,
+    Callback = function(state)
+        rolling = state
+        if rolling then
+            spawn(function()
+                while rolling do
+                    local args = { 400001 } -- ID used for rolling
+                    local result = game:GetService("ReplicatedStorage")
+                        :WaitForChild("Remotes")
+                        :WaitForChild("RerollOrnament")
+                        :InvokeServer(unpack(args))
+                    
+                    -- Find ornament name from rolled ID
+                    local rolledName = "Unknown"
+                    for _, ornament in ipairs(ornaments) do
+                        if ornament.Id == result.ornamentId then
+                            rolledName = ornament.Name
+                            break
+                        end
+                    end
+                    
+                    print("Ornament rolled:", rolledName)
+                    
+                    -- Stop if rolled ornament name is toggled
+                    if selectedOrnaments[rolledName] then
+                        print("Target ornament rolled! Stopping...")
+                        rolling = false
+                        break
+                    end
+                    
+                    wait(0.1) -- optional small delay
                 end
-            else
-                warn("Roll failed:", result)
-            end
-
-            wait(0.1)
+            end)
         end
     end
 })
-
--- 5. Stop Spin button
-Tab5:AddButton({
-    Title = "Stop Spin",
-    Callback = function()
-        spinning = false
-        print("Spinner manually stopped.")
-    end
-})
-
-
--- ===========================
--- SAVE MANAGER / SETTINGS
--- ===========================
-SaveManager:SetLibrary(Fluent)
-InterfaceManager:SetLibrary(Fluent)
-SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({})
-InterfaceManager:SetFolder("FluentScriptHub")
-SaveManager:SetFolder("FluentScriptHub/Bladeslayer")
-InterfaceManager:BuildInterfaceSection(Tabs.Settings)
-SaveManager:BuildConfigSection(Tabs.Settings)
-
-Window:SelectTab(1)
-SaveManager:LoadAutoloadConfig()
-
--- Toggle UI Button
-local PlayerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
-
-local ToggleGui = Instance.new("ScreenGui")
-ToggleGui.Name = "ToggleFluentUI"
-ToggleGui.ResetOnSpawn = false
-ToggleGui.Parent = PlayerGui
-
-local ImageButton = Instance.new("ImageButton")
-ImageButton.Size = UDim2.new(0, 60, 0, 60)
-ImageButton.Position = UDim2.new(0, 10, 0, 10)
-ImageButton.BackgroundTransparency = 1
-ImageButton.Image = "rbxassetid://89716250379057" -- Replace this
-ImageButton.Parent = ToggleGui
-ImageButton.Active = true
-ImageButton.Draggable = true
-
-ImageButton.MouseButton1Click:Connect(function()
-    Window:Minimize()
-end)
